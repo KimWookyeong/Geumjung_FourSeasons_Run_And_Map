@@ -12,11 +12,10 @@ const NAVY = "#162544";
 const BORDER = "#d7eee1";
 const LIGHT_TEXT = "#9aa7b6";
 
-const NAME_KEY = "four_seasons_run_map_name_v5";
+const NAME_KEY = "four_seasons_run_map_name_v6";
 const DEFAULT_CENTER: [number, number] = [35.243, 129.092];
-
-// 관리자 UID로 바꾸세요
-const ADMIN_UID = "PUT_ADMIN_UID_HERE";
+const ADMIN_NAME = "admin";
+const ADMIN_CODE = "1234";
 
 const AREAS = [
   "부산대/장전동",
@@ -275,6 +274,8 @@ function BottomNav({
 export default function TrashMap() {
   const [nickname, setNickname] = useState("");
   const [nicknameInput, setNicknameInput] = useState("");
+  const [adminCode, setAdminCode] = useState("");
+  const [savedAdminCode, setSavedAdminCode] = useState(localStorage.getItem("four_seasons_admin_code") || "");
   const [user, setUser] = useState<any>(null);
   const [reports, setReports] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("map");
@@ -347,7 +348,9 @@ export default function TrashMap() {
     return () => clearTimeout(timer);
   }, [message]);
 
-  const isAdmin = !!user && user.uid === ADMIN_UID;
+  const isAdmin =
+    nickname.trim().toLowerCase() === ADMIN_NAME &&
+    savedAdminCode === ADMIN_CODE;
 
   const stats = useMemo(() => {
     const solved = reports.filter((r) => r.status === "solved").length;
@@ -375,19 +378,31 @@ export default function TrashMap() {
   const handleJoin = (e: any) => {
     e.preventDefault();
     const value = nicknameInput.trim();
+
     if (!value) {
       setMessage("닉네임을 입력해 주세요.");
       return;
     }
+
+    if (value.toLowerCase() === ADMIN_NAME && adminCode !== ADMIN_CODE) {
+      setMessage("관리자 코드가 올바르지 않습니다.");
+      return;
+    }
+
     localStorage.setItem(NAME_KEY, value);
+    localStorage.setItem("four_seasons_admin_code", adminCode);
     setNickname(value);
+    setSavedAdminCode(adminCode);
     setMessage("입장 완료");
   };
 
   const handleLogout = async () => {
     localStorage.removeItem(NAME_KEY);
+    localStorage.removeItem("four_seasons_admin_code");
     setNickname("");
     setNicknameInput("");
+    setAdminCode("");
+    setSavedAdminCode("");
     setShowAddSheet(false);
     try {
       await signOut(auth);
@@ -568,6 +583,13 @@ export default function TrashMap() {
                 placeholder="닉네임 (예: 금정_철수)"
                 style={styles.joinInput}
               />
+              <input
+                type="password"
+                value={adminCode}
+                onChange={(e) => setAdminCode(e.target.value)}
+                placeholder="관리자 코드 (관리자만 입력)"
+                style={styles.joinInput}
+              />
               <button type="submit" style={styles.joinButton}>
                 지도 합류하기
                 <span style={{ fontSize: 24, lineHeight: 0, opacity: 0.95 }}>›</span>
@@ -714,7 +736,7 @@ export default function TrashMap() {
               <div style={styles.adminCard}>
                 <div style={styles.adminTitle}>⚠ ADMIN TOOLS</div>
                 <div style={styles.adminDesc}>
-                  모든 사용자의 피드를 삭제하거나 전체 초기화할 수 있습니다.
+                  모든 사용자의 피드를 삭제할 수 있으며, 전체 초기화도 가능합니다.
                   <br />
                   (삭제된 데이터는 복구가 불가합니다)
                 </div>
@@ -952,7 +974,7 @@ const styles: any = {
     color: "#9ca4b0",
     outline: "none",
     textAlign: "center",
-    marginBottom: 18,
+    marginBottom: 14,
   },
   joinButton: {
     width: "100%",
