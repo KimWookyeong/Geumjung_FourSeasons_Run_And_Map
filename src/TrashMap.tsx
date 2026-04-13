@@ -2,23 +2,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, Marker, Popup, TileLayer, useMapEvents } from "react-leaflet";
 import L from "leaflet";
-import {
-  onAuthStateChanged,
-  signInAnonymously,
-  signOut,
-} from "firebase/auth";
+import { onAuthStateChanged, signInAnonymously, signOut } from "firebase/auth";
 import {
   addDoc,
   collection,
   deleteDoc,
   doc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
   updateDoc,
   writeBatch,
-  getDocs,
 } from "firebase/firestore";
 import { auth, db } from "./firebase";
 
@@ -28,13 +24,11 @@ const NAVY = "#162544";
 const BORDER = "#d7eee1";
 const LIGHT_TEXT = "#9aa7b6";
 
-const NAME_KEY = "four_seasons_run_map_name_v2";
-const DEFAULT_CENTER = [35.243, 129.092];
+const NAME_KEY = "four_seasons_run_map_name_v3";
+const DEFAULT_CENTER: [number, number] = [35.243, 129.092];
 
-// 관리자 UID를 여기에 넣으면 관리자 기능이 열립니다.
-const ADMIN_UIDS = [
-  "PUT_ADMIN_UID_HERE"
-];
+// 여기를 관리자 UID로 바꾸세요.
+const ADMIN_UID = "PUT_ADMIN_UID_HERE";
 
 const AREAS = [
   "부산대/장전동",
@@ -62,25 +56,25 @@ function makeMarkerIcon(categoryId: string) {
     className: "trash-map-marker",
     html: `
       <div style="
-        width:36px;
-        height:36px;
-        border-radius:12px;
+        width:32px;
+        height:32px;
+        border-radius:10px;
         background:${cat.color};
         color:white;
         display:flex;
         align-items:center;
         justify-content:center;
-        font-size:18px;
+        font-size:16px;
         border:3px solid white;
         transform:rotate(45deg);
-        box-shadow:0 8px 18px rgba(0,0,0,0.18);
+        box-shadow:0 6px 14px rgba(0,0,0,0.18);
       ">
         <div style="transform:rotate(-45deg)">${cat.icon}</div>
       </div>
     `,
-    iconSize: [36, 36],
-    iconAnchor: [18, 18],
-    popupAnchor: [0, -18],
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -16],
   });
 }
 
@@ -89,16 +83,16 @@ function makePickerIcon() {
     className: "trash-map-picker",
     html: `
       <div style="
-        width:22px;
-        height:22px;
+        width:20px;
+        height:20px;
         border-radius:50%;
         background:#ef4444;
         border:3px solid white;
         box-shadow:0 2px 8px rgba(0,0,0,0.25);
       "></div>
     `,
-    iconSize: [22, 22],
-    iconAnchor: [11, 11],
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
   });
 }
 
@@ -106,17 +100,17 @@ function ShieldLogo() {
   return (
     <div
       style={{
-        width: 42,
-        height: 42,
+        width: 38,
+        height: 38,
         borderRadius: 12,
         background: GREEN,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        boxShadow: "0 4px 14px rgba(25,195,125,0.25)",
+        boxShadow: "0 4px 12px rgba(25,195,125,0.22)",
       }}
     >
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
         <path
           d="M12 2L19 5V11C19 16 15.8 20.4 12 22C8.2 20.4 5 16 5 11V5L12 2Z"
           stroke="white"
@@ -134,9 +128,9 @@ function ShieldLogo() {
   );
 }
 
-function CloverLogo({ size = 98 }: { size?: number }) {
+function CloverLogo({ size = 86 }: { size?: number }) {
   return (
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "8px 0 10px" }}>
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "8px 0 8px" }}>
       <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
         <g transform="translate(50,50)">
           {[0, 90, 180, 270].map((angle) => (
@@ -158,7 +152,7 @@ function CloverLogo({ size = 98 }: { size?: number }) {
 
 function MapNavIcon({ active }: { active: boolean }) {
   return (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
       <path
         d="M12 21C16 16.7 18 13.5 18 10.5C18 6.9 15.3 4 12 4C8.7 4 6 6.9 6 10.5C6 13.5 8 16.7 12 21Z"
         stroke={active ? GREEN : "#b7c0ce"}
@@ -171,7 +165,7 @@ function MapNavIcon({ active }: { active: boolean }) {
 
 function ListNavIcon({ active }: { active: boolean }) {
   return (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
       <circle cx="6" cy="7" r="1.5" fill={active ? GREEN : "#b7c0ce"} />
       <circle cx="6" cy="12" r="1.5" fill={active ? GREEN : "#b7c0ce"} />
       <circle cx="6" cy="17" r="1.5" fill={active ? GREEN : "#b7c0ce"} />
@@ -187,7 +181,7 @@ function ListNavIcon({ active }: { active: boolean }) {
 
 function StatsNavIcon({ active }: { active: boolean }) {
   return (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
       <path
         d="M5 19V11M10 19V6M15 19V13M20 19V9"
         stroke={active ? GREEN : "#b7c0ce"}
@@ -237,17 +231,17 @@ function Header({
 }) {
   return (
     <header style={styles.headerBar}>
-      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <ShieldLogo />
-        <div style={{ fontSize: 23, fontWeight: 900, color: NAVY, letterSpacing: "-0.02em" }}>
+        <div style={{ fontSize: 20, fontWeight: 900, color: NAVY, letterSpacing: "-0.02em" }}>
           FOUR SEASONS
         </div>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         {isAdmin ? <div style={styles.adminPill}>Admin</div> : <div style={styles.userPill}>{nickname}</div>}
         <button onClick={onLogout} style={styles.logoutButton} aria-label="로그아웃">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
             <path
               d="M10 7L15 12L10 17"
               stroke="#b8c1cf"
@@ -319,10 +313,11 @@ export default function TrashMap() {
         setUser(currentUser);
       } else {
         try {
-          await signInAnonymously(auth);
-        } catch (error) {
-          console.error(error);
-          setMessage("Firebase 인증에 실패했습니다.");
+          const result = await signInAnonymously(auth);
+          setUser(result.user);
+        } catch (error: any) {
+          console.error("익명 로그인 실패:", error);
+          setMessage(`로그인 실패: ${error.code || "unknown-error"}`);
         }
       }
     });
@@ -352,11 +347,11 @@ export default function TrashMap() {
 
   useEffect(() => {
     if (!message) return;
-    const timer = setTimeout(() => setMessage(""), 2600);
+    const timer = setTimeout(() => setMessage(""), 2200);
     return () => clearTimeout(timer);
   }, [message]);
 
-  const isAdmin = !!user && ADMIN_UIDS.includes(user.uid);
+  const isAdmin = !!user && user.uid === ADMIN_UID;
 
   const stats = useMemo(() => {
     const solved = reports.filter((r) => r.status === "solved").length;
@@ -480,8 +475,8 @@ export default function TrashMap() {
       await addDoc(collection(db, "reports"), baseReport);
       resetForm();
       setShowAddSheet(false);
-      setActiveTab("list");
-      setMessage("저장되었습니다.");
+      setActiveTab("map");
+      setMessage("업로드 완료");
     } catch (error) {
       console.error(error);
 
@@ -493,15 +488,15 @@ export default function TrashMap() {
           });
           resetForm();
           setShowAddSheet(false);
-          setActiveTab("list");
-          setMessage("사진을 제외하고 저장되었습니다.");
+          setActiveTab("map");
+          setMessage("사진 없이 업로드 완료");
           return;
         } catch (retryError) {
           console.error(retryError);
         }
       }
 
-      setMessage("저장에 실패했습니다. Firebase 설정과 규칙을 확인해 주세요.");
+      setMessage("저장에 실패했습니다.");
     }
   };
 
@@ -538,7 +533,7 @@ export default function TrashMap() {
       const batch = writeBatch(db);
       snapshot.forEach((d) => batch.delete(d.ref));
       await batch.commit();
-      setMessage("전체 데이터가 삭제되었습니다.");
+      setMessage("전체 데이터가 초기화되었습니다.");
     } catch (error) {
       console.error(error);
       setMessage("관리자 권한이 필요합니다.");
@@ -550,7 +545,7 @@ export default function TrashMap() {
       <div style={styles.joinScreen}>
         <style>{globalCss}</style>
         <div style={styles.joinWrap}>
-          <CloverLogo size={102} />
+          <CloverLogo size={86} />
           <div style={styles.joinTitle}>FOUR SEASONS</div>
           <div style={styles.joinCaption}>금정구의 사계절을 기록하고 함께 지켜나가요</div>
 
@@ -571,7 +566,7 @@ export default function TrashMap() {
               />
               <button type="submit" style={styles.joinButton}>
                 지도 합류하기
-                <span style={{ fontSize: 28, lineHeight: 0, opacity: 0.95 }}>›</span>
+                <span style={{ fontSize: 24, lineHeight: 0, opacity: 0.95 }}>›</span>
               </button>
             </form>
           </div>
@@ -604,16 +599,16 @@ export default function TrashMap() {
                     icon={makeMarkerIcon(report.category)}
                   >
                     <Popup>
-                      <div style={{ minWidth: 180 }}>
+                      <div style={{ minWidth: 160 }}>
                         <div>
                           <strong>
                             {getCategory(report.category).icon} {getCategory(report.category).label}
                           </strong>
                         </div>
-                        <div style={{ marginTop: 6 }}>지역: {report.area}</div>
-                        <div>작성자: {report.userName}</div>
-                        <div>상태: {report.status === "solved" ? "해결됨" : "진행중"}</div>
-                        <div style={{ marginTop: 6 }}>{report.description}</div>
+                        <div style={{ marginTop: 6, fontSize: 13 }}>지역: {report.area}</div>
+                        <div style={{ fontSize: 13 }}>작성자: {report.userName}</div>
+                        <div style={{ fontSize: 13 }}>상태: {report.status === "solved" ? "해결됨" : "진행중"}</div>
+                        <div style={{ marginTop: 6, fontSize: 13 }}>{report.description}</div>
                       </div>
                     </Popup>
                   </Marker>
@@ -665,7 +660,7 @@ export default function TrashMap() {
                           삭제
                         </button>
                       ) : (
-                        <div style={{ color: "#ccd4dd", fontSize: 12, fontWeight: 800 }}>읽기 전용</div>
+                        <div style={{ color: "#ccd4dd", fontSize: 11, fontWeight: 800 }}>읽기 전용</div>
                       )}
                     </div>
                   </div>
@@ -694,22 +689,6 @@ export default function TrashMap() {
                 <div style={styles.smallStatTitle}>REMAINING</div>
                 <div style={{ ...styles.smallStatNumber, color: NAVY }}>{stats.pending}</div>
               </div>
-            </div>
-
-            <div style={styles.uidCard}>
-              <div style={styles.uidTitle}>내 UID</div>
-              <div style={styles.uidValue}>{user?.uid || "연결 중..."}</div>
-              <button
-                onClick={() => {
-                  if (user?.uid) {
-                    navigator.clipboard.writeText(user.uid);
-                    setMessage("UID가 복사되었습니다.");
-                  }
-                }}
-                style={styles.uidCopyButton}
-              >
-                UID 복사
-              </button>
             </div>
 
             {isAdmin && (
@@ -764,7 +743,7 @@ export default function TrashMap() {
 
             <div style={styles.topActionGrid}>
               <button type="button" onClick={handleCurrentLocation} style={styles.actionCardDark}>
-                <div style={{ fontSize: 24 }}>📍</div>
+                <div style={{ fontSize: 20 }}>📍</div>
                 <div style={styles.actionCardLabelWhite}>내 위치 잡기</div>
               </button>
 
@@ -794,7 +773,7 @@ export default function TrashMap() {
                   </div>
                 ) : (
                   <>
-                    <div style={{ fontSize: 24, color: GREEN }}>📷</div>
+                    <div style={{ fontSize: 20, color: GREEN }}>📷</div>
                     <div style={styles.actionCardLabelGreen}>사진 업로드</div>
                   </>
                 )}
@@ -825,10 +804,10 @@ export default function TrashMap() {
                     boxShadow:
                       formData.category === cat.id
                         ? "inset 0 0 0 1px rgba(25,195,125,0.25)"
-                        : "0 8px 20px rgba(0,0,0,0.04)",
+                        : "0 8px 18px rgba(0,0,0,0.04)",
                   }}
                 >
-                  <span style={{ fontSize: 22 }}>{cat.icon}</span>
+                  <span style={{ fontSize: 20 }}>{cat.icon}</span>
                   <span style={styles.categoryCardText}>{cat.label}</span>
                 </button>
               ))}
@@ -841,8 +820,16 @@ export default function TrashMap() {
               style={styles.textAreaBox}
             />
 
-            <button onClick={handleSave} style={styles.uploadButton}>
-              지도에 업로드
+            <button
+              onClick={handleSave}
+              style={{
+                ...styles.uploadButton,
+                opacity: user ? 1 : 0.5,
+                cursor: user ? "pointer" : "not-allowed",
+              }}
+              disabled={!user}
+            >
+              {user ? "지도에 업로드" : "로그인 연결 중..."}
             </button>
           </div>
         </div>
@@ -886,24 +873,24 @@ const styles: any = {
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    padding: "34px 20px 48px",
+    padding: "24px 16px 36px",
   },
   joinTitle: {
-    fontSize: 42,
+    fontSize: 34,
     fontWeight: 900,
     color: NAVY,
     letterSpacing: "-0.04em",
     marginTop: 4,
   },
   joinCaption: {
-    marginTop: 16,
+    marginTop: 12,
     background: "white",
     color: "#1fa574",
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 800,
     borderRadius: 999,
-    padding: "10px 18px",
-    boxShadow: "0 4px 18px rgba(0,0,0,0.05)",
+    padding: "8px 14px",
+    boxShadow: "0 4px 16px rgba(0,0,0,0.05)",
     border: `1px solid ${BORDER}`,
     textAlign: "center",
     whiteSpace: "nowrap",
@@ -911,72 +898,72 @@ const styles: any = {
   },
   joinCard: {
     width: "100%",
-    maxWidth: 690,
+    maxWidth: 640,
     background: "white",
-    borderRadius: 42,
-    marginTop: 44,
-    padding: "48px 36px 34px",
-    boxShadow: "0 24px 44px rgba(0,0,0,0.10)",
+    borderRadius: 30,
+    marginTop: 28,
+    padding: "32px 24px 24px",
+    boxShadow: "0 18px 36px rgba(0,0,0,0.08)",
     border: `1px solid ${BORDER}`,
   },
   joinCardTitle: {
     textAlign: "center",
     color: NAVY,
     fontWeight: 900,
-    fontSize: 34,
+    fontSize: 28,
     letterSpacing: "-0.04em",
   },
   joinCardSub: {
     textAlign: "center",
     color: LIGHT_TEXT,
     lineHeight: 1.6,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 700,
-    marginTop: 14,
-    marginBottom: 30,
+    marginTop: 10,
+    marginBottom: 22,
   },
   joinInput: {
     width: "100%",
     background: "#f3f5f8",
     border: "1px solid #e8edf3",
-    borderRadius: 28,
-    padding: "28px 24px",
-    fontSize: 22,
+    borderRadius: 22,
+    padding: "18px 14px",
+    fontSize: 15,
     fontWeight: 800,
     color: "#9ca4b0",
     outline: "none",
     textAlign: "center",
-    marginBottom: 26,
+    marginBottom: 18,
   },
   joinButton: {
     width: "100%",
     border: "none",
-    borderRadius: 30,
-    padding: "26px 24px",
+    borderRadius: 24,
+    padding: "20px 18px",
     background: GREEN,
     color: "white",
     fontWeight: 900,
-    fontSize: 28,
+    fontSize: 22,
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    gap: 14,
-    boxShadow: "0 14px 28px rgba(25,195,125,0.24)",
+    gap: 10,
+    boxShadow: "0 12px 24px rgba(25,195,125,0.22)",
     cursor: "pointer",
   },
   headerBar: {
-    height: 86,
+    height: 72,
     background: "white",
     borderBottom: `1px solid ${BORDER}`,
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: "0 18px",
+    padding: "0 14px",
     flexShrink: 0,
   },
   adminPill: {
-    minWidth: 94,
-    height: 46,
+    minWidth: 80,
+    height: 38,
     borderRadius: 999,
     border: `1px solid ${BORDER}`,
     color: "#1d8f63",
@@ -985,25 +972,25 @@ const styles: any = {
     alignItems: "center",
     justifyContent: "center",
     background: "#f4fbf7",
-    fontSize: 16,
-  },
-  userPill: {
-    minWidth: 94,
-    height: 46,
-    borderRadius: 999,
-    border: `1px solid ${BORDER}`,
-    color: "#1d8f63",
-    fontWeight: 800,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    background: "#f4fbf7",
-    padding: "0 14px",
     fontSize: 14,
   },
+  userPill: {
+    minWidth: 80,
+    height: 38,
+    borderRadius: 999,
+    border: `1px solid ${BORDER}`,
+    color: "#1d8f63",
+    fontWeight: 800,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "#f4fbf7",
+    padding: "0 12px",
+    fontSize: 13,
+  },
   logoutButton: {
-    width: 34,
-    height: 34,
+    width: 30,
+    height: 30,
     border: "none",
     background: "transparent",
     display: "flex",
@@ -1029,16 +1016,16 @@ const styles: any = {
   recordFab: {
     position: "absolute",
     left: "50%",
-    bottom: 98,
+    bottom: 86,
     transform: "translateX(-50%)",
     border: "none",
     background: NAVY,
     color: "white",
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: 900,
-    padding: "22px 42px",
+    padding: "18px 32px",
     borderRadius: 999,
-    boxShadow: "0 18px 32px rgba(22,37,68,0.25)",
+    boxShadow: "0 14px 28px rgba(22,37,68,0.22)",
     cursor: "pointer",
     zIndex: 500,
   },
@@ -1046,46 +1033,46 @@ const styles: any = {
     width: "100%",
     height: "100%",
     overflowY: "auto",
-    padding: "28px 22px 120px",
+    padding: "20px 16px 108px",
     background: BG,
   },
   pageHeading: {
     color: NAVY,
     fontWeight: 900,
-    fontSize: 34,
+    fontSize: 28,
     letterSpacing: "-0.03em",
-    marginBottom: 28,
+    marginBottom: 20,
   },
   emptyFeed: {
     color: "#c8d0db",
     textAlign: "center",
-    marginTop: 180,
+    marginTop: 150,
     fontWeight: 900,
-    fontSize: 26,
+    fontSize: 22,
   },
   feedCard: {
     background: "white",
-    borderRadius: 38,
-    padding: 24,
-    marginBottom: 18,
+    borderRadius: 28,
+    padding: 18,
+    marginBottom: 14,
     border: `1px solid ${BORDER}`,
-    boxShadow: "0 10px 24px rgba(0,0,0,0.06)",
+    boxShadow: "0 8px 18px rgba(0,0,0,0.05)",
   },
   feedCardTop: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    gap: 12,
-    marginBottom: 16,
+    gap: 10,
+    marginBottom: 12,
   },
   areaBadge: {
     display: "inline-flex",
     alignItems: "center",
     gap: 8,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 900,
     color: GREEN,
-    padding: "8px 12px",
+    padding: "7px 10px",
     background: "#f4fbf7",
     borderRadius: 999,
     border: `1px solid ${BORDER}`,
@@ -1095,8 +1082,8 @@ const styles: any = {
     background: GREEN,
     color: "white",
     fontWeight: 900,
-    fontSize: 11,
-    padding: "8px 12px",
+    fontSize: 10,
+    padding: "7px 10px",
     borderRadius: 999,
     cursor: "pointer",
   },
@@ -1105,145 +1092,112 @@ const styles: any = {
     background: "#eef2f7",
     color: "#9ea7b4",
     fontWeight: 900,
-    fontSize: 11,
-    padding: "8px 12px",
+    fontSize: 10,
+    padding: "7px 10px",
     borderRadius: 999,
     cursor: "pointer",
   },
   feedImage: {
     width: "100%",
-    height: 192,
+    height: 170,
     objectFit: "cover",
-    borderRadius: 28,
-    marginBottom: 16,
+    borderRadius: 20,
+    marginBottom: 12,
     border: "1px solid #edf2f5",
   },
   feedText: {
     color: "#5c6674",
-    fontSize: 18,
-    lineHeight: 1.6,
+    fontSize: 15,
+    lineHeight: 1.55,
     fontWeight: 700,
-    marginBottom: 18,
-    padding: "0 4px",
+    marginBottom: 14,
+    padding: "0 2px",
   },
   feedFooter: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     borderTop: "1px solid #eff3f7",
-    paddingTop: 14,
+    paddingTop: 12,
   },
   feedUser: {
     color: "#9aa3af",
     fontWeight: 800,
-    fontSize: 13,
+    fontSize: 12,
   },
   deleteButton: {
     border: "none",
     background: "transparent",
     color: "#ef9a9a",
     fontWeight: 900,
-    fontSize: 14,
+    fontSize: 13,
     cursor: "pointer",
   },
   totalBox: {
     background: NAVY,
-    borderRadius: 56,
-    padding: "46px 20px 34px",
+    borderRadius: 40,
+    padding: "34px 16px 24px",
     textAlign: "center",
-    boxShadow: "0 18px 34px rgba(22,37,68,0.18)",
-    marginBottom: 20,
+    boxShadow: "0 14px 28px rgba(22,37,68,0.18)",
+    marginBottom: 18,
   },
   totalNumber: {
     color: "white",
     fontWeight: 900,
-    fontSize: 92,
+    fontSize: 72,
     lineHeight: 1,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   totalLabel: {
     color: GREEN,
     fontWeight: 900,
     letterSpacing: "0.12em",
-    fontSize: 16,
+    fontSize: 13,
   },
   statRow: {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
-    gap: 18,
-    marginBottom: 24,
+    gap: 14,
+    marginBottom: 20,
   },
   smallStatBox: {
     background: "white",
-    borderRadius: 34,
-    padding: "34px 20px",
+    borderRadius: 26,
+    padding: "24px 14px",
     textAlign: "center",
-    boxShadow: "0 10px 24px rgba(0,0,0,0.06)",
+    boxShadow: "0 8px 18px rgba(0,0,0,0.05)",
   },
   smallStatTitle: {
     color: "#9ca6b5",
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: 900,
-    marginBottom: 18,
+    marginBottom: 14,
   },
   smallStatNumber: {
-    fontSize: 54,
+    fontSize: 42,
     fontWeight: 900,
     lineHeight: 1,
   },
-  uidCard: {
-    background: "white",
-    borderRadius: 28,
-    padding: "24px 20px",
-    marginBottom: 24,
-    boxShadow: "0 10px 24px rgba(0,0,0,0.06)",
-  },
-  uidTitle: {
-    color: NAVY,
-    fontWeight: 900,
-    fontSize: 18,
-    marginBottom: 10,
-  },
-  uidValue: {
-    color: "#5c6674",
-    fontSize: 12,
-    fontWeight: 700,
-    wordBreak: "break-all",
-    lineHeight: 1.6,
-    background: "#f7faf8",
-    borderRadius: 12,
-    padding: "10px 12px",
-    marginBottom: 12,
-  },
-  uidCopyButton: {
-    border: "none",
-    background: NAVY,
-    color: "white",
-    borderRadius: 14,
-    padding: "10px 14px",
-    fontWeight: 800,
-    cursor: "pointer",
-  },
   adminCard: {
     background: "#f9fcfa",
-    borderRadius: 42,
+    borderRadius: 32,
     border: "2px dashed #f3dddd",
-    padding: "42px 24px 28px",
+    padding: "30px 18px 22px",
     textAlign: "center",
-    boxShadow: "0 8px 20px rgba(0,0,0,0.03)",
+    boxShadow: "0 8px 18px rgba(0,0,0,0.03)",
   },
   adminTitle: {
     color: "#f08a8a",
     fontWeight: 900,
-    fontSize: 28,
-    marginBottom: 16,
+    fontSize: 24,
+    marginBottom: 12,
   },
   adminDesc: {
     color: "#bac2cb",
     fontWeight: 800,
-    lineHeight: 1.4,
-    fontSize: 14,
-    marginBottom: 24,
+    lineHeight: 1.45,
+    fontSize: 13,
+    marginBottom: 18,
   },
   adminButton: {
     width: "100%",
@@ -1251,20 +1205,20 @@ const styles: any = {
     background: "#ea8f8f",
     color: "white",
     fontWeight: 900,
-    fontSize: 20,
-    borderRadius: 28,
-    padding: "22px 20px",
+    fontSize: 18,
+    borderRadius: 22,
+    padding: "18px 16px",
     cursor: "pointer",
   },
   bottomNav: {
-    height: 92,
+    height: 82,
     background: "white",
     borderTop: `1px solid ${BORDER}`,
     display: "grid",
     gridTemplateColumns: "1fr 1fr 1fr",
     alignItems: "center",
     flexShrink: 0,
-    paddingBottom: 6,
+    paddingBottom: 4,
   },
   navItemButton: {
     border: "none",
@@ -1273,11 +1227,11 @@ const styles: any = {
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    gap: 4,
+    gap: 3,
     cursor: "pointer",
   },
   navLabel: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: 900,
   },
   sheetBackdrop: {
@@ -1295,69 +1249,74 @@ const styles: any = {
     maxHeight: "88vh",
     overflowY: "auto",
     background: BG,
-    borderTopLeftRadius: 34,
-    borderTopRightRadius: 34,
-    padding: "22px 18px 28px",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    padding: "18px 14px 22px",
     boxShadow: "0 -14px 36px rgba(0,0,0,0.16)",
   },
   sheetHeader: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 18,
+    marginBottom: 14,
   },
   sheetTitle: {
     color: NAVY,
     fontWeight: 900,
-    fontSize: 24,
+    fontSize: 20,
     letterSpacing: "-0.03em",
   },
   closeButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     border: "1px solid #eef3f0",
     background: "white",
-    fontSize: 20,
+    fontSize: 18,
     cursor: "pointer",
   },
   miniMapWrap: {
-    height: 220,
+    height: 190,
     overflow: "hidden",
-    borderRadius: 24,
-    marginBottom: 10,
-    boxShadow: "0 10px 20px rgba(0,0,0,0.06)",
+    borderRadius: 20,
+    marginBottom: 8,
+    boxShadow: "0 8px 18px rgba(0,0,0,0.06)",
   },
   helpCopy: {
     color: "#8f9caa",
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: 700,
-    marginBottom: 14,
+    marginBottom: 12,
     textAlign: "center",
   },
   topActionGrid: {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
-    gap: 14,
-    marginBottom: 14,
+    gap: 12,
+    marginBottom: 12,
   },
   actionCardDark: {
-    height: 96,
+    height: 84,
     border: "none",
-    borderRadius: 28,
+    borderRadius: 22,
     background: NAVY,
     color: "white",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-    boxShadow: "0 10px 22px rgba(22,37,68,0.18)",
+    gap: 5,
+    boxShadow: "0 8px 18px rgba(22,37,68,0.18)",
     cursor: "pointer",
   },
+  actionCardLabelWhite: {
+    fontSize: 11,
+    fontWeight: 900,
+    color: "white",
+  },
   actionCardLight: {
-    height: 96,
-    borderRadius: 28,
+    height: 84,
+    borderRadius: 22,
     background: "white",
     border: `2px dashed ${BORDER}`,
     color: GREEN,
@@ -1365,19 +1324,14 @@ const styles: any = {
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
+    gap: 5,
     boxShadow: "0 8px 16px rgba(0,0,0,0.04)",
     cursor: "pointer",
     overflow: "hidden",
     position: "relative",
   },
-  actionCardLabelWhite: {
-    fontSize: 12,
-    fontWeight: 900,
-    color: "white",
-  },
   actionCardLabelGreen: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 900,
     color: GREEN,
   },
@@ -1395,14 +1349,14 @@ const styles: any = {
     position: "absolute",
     top: 8,
     right: 8,
-    width: 28,
-    height: 28,
+    width: 26,
+    height: 26,
     borderRadius: "50%",
     border: "none",
     background: "rgba(0,0,0,0.72)",
     color: "white",
     fontWeight: 900,
-    fontSize: 16,
+    fontSize: 14,
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
@@ -1413,48 +1367,48 @@ const styles: any = {
     width: "100%",
     border: "2px solid #edf2f0",
     background: "white",
-    borderRadius: 20,
-    padding: "16px 16px",
-    fontSize: 16,
+    borderRadius: 18,
+    padding: "14px 14px",
+    fontSize: 15,
     fontWeight: 800,
     color: NAVY,
-    marginBottom: 14,
+    marginBottom: 12,
     outline: "none",
   },
   categoryGrid: {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
-    gap: 12,
-    marginBottom: 14,
+    gap: 10,
+    marginBottom: 12,
   },
   categoryCard: {
     border: "2px solid transparent",
     background: "white",
-    borderRadius: 24,
-    minHeight: 78,
+    borderRadius: 20,
+    minHeight: 68,
     display: "flex",
     alignItems: "center",
-    gap: 10,
-    padding: "0 16px",
+    gap: 8,
+    padding: "0 14px",
     cursor: "pointer",
   },
   categoryCardText: {
     color: NAVY,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: 900,
   },
   textAreaBox: {
     width: "100%",
-    minHeight: 138,
-    borderRadius: 30,
+    minHeight: 120,
+    borderRadius: 24,
     border: "2px solid #eef2f0",
     background: "white",
-    padding: "20px 18px",
-    fontSize: 16,
+    padding: "16px 14px",
+    fontSize: 15,
     color: NAVY,
     resize: "none",
     outline: "none",
-    marginBottom: 18,
+    marginBottom: 14,
   },
   uploadButton: {
     width: "100%",
@@ -1462,11 +1416,11 @@ const styles: any = {
     background: GREEN,
     color: "white",
     fontWeight: 900,
-    fontSize: 20,
-    borderRadius: 30,
-    padding: "24px 18px",
+    fontSize: 18,
+    borderRadius: 24,
+    padding: "20px 16px",
     cursor: "pointer",
-    boxShadow: "0 16px 28px rgba(25,195,125,0.20)",
+    boxShadow: "0 14px 24px rgba(25,195,125,0.20)",
   },
   toast: {
     position: "fixed",
@@ -1475,10 +1429,11 @@ const styles: any = {
     transform: "translateX(-50%)",
     background: "#182742",
     color: "white",
-    padding: "12px 16px",
-    borderRadius: 16,
+    padding: "10px 14px",
+    borderRadius: 14,
     zIndex: 4000,
     boxShadow: "0 12px 24px rgba(0,0,0,0.18)",
     fontWeight: 800,
+    fontSize: 14,
   },
 };
