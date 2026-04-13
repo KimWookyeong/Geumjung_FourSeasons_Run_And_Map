@@ -2,6 +2,25 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, Marker, Popup, TileLayer, useMapEvents } from "react-leaflet";
 import L from "leaflet";
+import {
+  onAuthStateChanged,
+  signInAnonymously,
+  signOut,
+} from "firebase/auth";
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  updateDoc,
+  writeBatch,
+  getDocs,
+} from "firebase/firestore";
+import { auth, db } from "./firebase";
 
 const BG = "#edf8f1";
 const GREEN = "#19c37d";
@@ -9,9 +28,13 @@ const NAVY = "#162544";
 const BORDER = "#d7eee1";
 const LIGHT_TEXT = "#9aa7b6";
 
-const STORAGE_KEY = "four_seasons_run_map_reports_v1";
-const NAME_KEY = "four_seasons_run_map_name_v1";
-const DEFAULT_CENTER: [number, number] = [35.243, 129.092];
+const NAME_KEY = "four_seasons_run_map_name_v2";
+const DEFAULT_CENTER = [35.243, 129.092];
+
+// 관리자 UID를 여기에 넣으면 관리자 기능이 열립니다.
+const ADMIN_UIDS = [
+  "PUT_ADMIN_UID_HERE"
+];
 
 const AREAS = [
   "부산대/장전동",
@@ -29,30 +52,8 @@ const CATEGORIES = [
   { id: "etc", label: "기타 쓰레기", icon: "❓", color: "#64748b" },
 ];
 
-function getSafeReports() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveReports(reports: any[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(reports));
-}
-
-function createId() {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  return `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-}
-
-function getCategory(id: string) {
-  return CATEGORIES.find((c) => c.id === id) || CATEGORIES[CATEGORIES.length - 1];
+function getCategory(categoryId: string) {
+  return CATEGORIES.find((c) => c.id === categoryId) || CATEGORIES[CATEGORIES.length - 1];
 }
 
 function makeMarkerIcon(categoryId: string) {
@@ -219,10 +220,7 @@ function ClickLocationPicker({
   if (!selectedLocation) return null;
 
   return (
-    <Marker
-      position={[selectedLocation.lat, selectedLocation.lng]}
-      icon={makePickerIcon()}
-    >
+    <Marker position={[selectedLocation.lat, selectedLocation.lng]} icon={makePickerIcon()}>
       <Popup>선택한 위치</Popup>
     </Marker>
   );
@@ -247,12 +245,7 @@ function Header({
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        {isAdmin ? (
-          <div style={styles.adminPill}>Admin</div>
-        ) : (
-          <div style={styles.userPill}>{nickname}</div>
-        )}
-
+        {isAdmin ? <div style={styles.adminPill}>Admin</div> : <div style={styles.userPill}>{nickname}</div>}
         <button onClick={onLogout} style={styles.logoutButton} aria-label="로그아웃">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
             <path
@@ -300,6 +293,7 @@ function BottomNav({
 export default function TrashMap() {
   const [nickname, setNickname] = useState("");
   const [nicknameInput, setNicknameInput] = useState("");
+  const [user, setUser] = useState<any>(null);
   const [reports, setReports] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("map");
   const [showAddSheet, setShowAddSheet] = useState(false);
@@ -316,10 +310,44 @@ export default function TrashMap() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    const savedNickname = localStorage.getItem(NAME_KEY) || "";
-    const savedReports = getSafeReports();
-    setNickname(savedNickname);
-    setReports(savedReports);
+    setNickname(localStorage.getItem(NAME_KEY) || "");
+  }, []);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+      } else {
+        try {
+          await signInAnonymously(auth);
+        } catch (error) {
+          console.error(error);
+          setMessage("Firebase 인증에 실패했습니다.");
+        }
+      }
+    });
+
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    const q = query(collection(db, "reports"), orderBy("createdAtMs", "desc"));
+    const unsub = onSnapshot(
+      q,
+      (snapshot) => {
+        const items = snapshot.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+        }));
+        setReports(items);
+      },
+      (error) => {
+        console.error(error);
+        setMessage("실시간 데이터 연결에 실패했습니다.");
+      }
+    );
+
+    return () => unsub();
   }, []);
 
   useEffect(() => {
@@ -328,7 +356,7 @@ export default function TrashMap() {
     return () => clearTimeout(timer);
   }, [message]);
 
-  const isAdmin = nickname.trim().toLowerCase() === "admin";
+  const isAdmin = !!user && ADMIN_UIDS.includes(user.uid);
 
   const stats = useMemo(() => {
     const solved = reports.filter((r) => r.status === "solved").length;
@@ -365,11 +393,16 @@ export default function TrashMap() {
     setMessage("입장 완료");
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     localStorage.removeItem(NAME_KEY);
     setNickname("");
     setNicknameInput("");
     setShowAddSheet(false);
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error(error);
+    }
     setMessage("로그아웃 되었습니다.");
   };
 
@@ -414,9 +447,14 @@ export default function TrashMap() {
     reader.readAsDataURL(file);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!nickname) {
       setMessage("닉네임이 필요합니다.");
+      return;
+    }
+
+    if (!user) {
+      setMessage("로그인 연결 중입니다. 잠시 후 다시 시도해 주세요.");
       return;
     }
 
@@ -425,8 +463,8 @@ export default function TrashMap() {
       return;
     }
 
-    const newReport = {
-      id: createId(),
+    const baseReport = {
+      uid: user.uid,
       userName: nickname,
       category: formData.category,
       area: formData.area,
@@ -434,43 +472,77 @@ export default function TrashMap() {
       image: formData.image || "",
       location: formData.location,
       status: "pending",
-      createdAt: new Date().toISOString(),
+      createdAt: serverTimestamp(),
+      createdAtMs: Date.now(),
     };
 
-    const nextReports = [newReport, ...reports];
-    saveReports(nextReports);
-    setReports(nextReports);
-    resetForm();
-    setShowAddSheet(false);
-    setActiveTab("list");
-    setMessage("저장되었습니다.");
+    try {
+      await addDoc(collection(db, "reports"), baseReport);
+      resetForm();
+      setShowAddSheet(false);
+      setActiveTab("list");
+      setMessage("저장되었습니다.");
+    } catch (error) {
+      console.error(error);
+
+      if (formData.image) {
+        try {
+          await addDoc(collection(db, "reports"), {
+            ...baseReport,
+            image: "",
+          });
+          resetForm();
+          setShowAddSheet(false);
+          setActiveTab("list");
+          setMessage("사진을 제외하고 저장되었습니다.");
+          return;
+        } catch (retryError) {
+          console.error(retryError);
+        }
+      }
+
+      setMessage("저장에 실패했습니다. Firebase 설정과 규칙을 확인해 주세요.");
+    }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     const ok = window.confirm("이 기록을 삭제할까요?");
     if (!ok) return;
-    const nextReports = reports.filter((r) => r.id !== id);
-    saveReports(nextReports);
-    setReports(nextReports);
-    setMessage("삭제되었습니다.");
+
+    try {
+      await deleteDoc(doc(db, "reports", id));
+      setMessage("삭제되었습니다.");
+    } catch (error) {
+      console.error(error);
+      setMessage("삭제 권한이 없습니다.");
+    }
   };
 
-  const handleToggleStatus = (id: string) => {
-    const nextReports = reports.map((r) =>
-      r.id === id
-        ? { ...r, status: r.status === "pending" ? "solved" : "pending" }
-        : r
-    );
-    saveReports(nextReports);
-    setReports(nextReports);
+  const handleToggleStatus = async (id: string, currentStatus: string) => {
+    try {
+      await updateDoc(doc(db, "reports", id), {
+        status: currentStatus === "pending" ? "solved" : "pending",
+      });
+    } catch (error) {
+      console.error(error);
+      setMessage("상태 변경 권한이 없습니다.");
+    }
   };
 
-  const handleClearAll = () => {
+  const handleClearAll = async () => {
     const ok = window.confirm("전체 데이터를 삭제할까요?");
     if (!ok) return;
-    localStorage.removeItem(STORAGE_KEY);
-    setReports([]);
-    setMessage("전체 데이터가 삭제되었습니다.");
+
+    try {
+      const snapshot = await getDocs(collection(db, "reports"));
+      const batch = writeBatch(db);
+      snapshot.forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+      setMessage("전체 데이터가 삭제되었습니다.");
+    } catch (error) {
+      console.error(error);
+      setMessage("관리자 권한이 필요합니다.");
+    }
   };
 
   if (!nickname) {
@@ -564,6 +636,9 @@ export default function TrashMap() {
             ) : (
               reports.map((report) => {
                 const cat = getCategory(report.category);
+                const canDelete = isAdmin || (user && report.uid === user.uid);
+                const canToggle = isAdmin || (user && report.uid === user.uid);
+
                 return (
                   <div key={report.id} style={styles.feedCard}>
                     <div style={styles.feedCardTop}>
@@ -572,7 +647,7 @@ export default function TrashMap() {
                       </div>
 
                       <button
-                        onClick={() => handleToggleStatus(report.id)}
+                        onClick={() => canToggle && handleToggleStatus(report.id, report.status)}
                         style={report.status === "solved" ? styles.statusSolved : styles.statusPending}
                       >
                         {report.status === "solved" ? "해결됨 ✓" : "진행중"}
@@ -585,9 +660,13 @@ export default function TrashMap() {
 
                     <div style={styles.feedFooter}>
                       <div style={styles.feedUser}>👤 {report.userName}</div>
-                      <button onClick={() => handleDelete(report.id)} style={styles.deleteButton}>
-                        삭제
-                      </button>
+                      {canDelete ? (
+                        <button onClick={() => handleDelete(report.id)} style={styles.deleteButton}>
+                          삭제
+                        </button>
+                      ) : (
+                        <div style={{ color: "#ccd4dd", fontSize: 12, fontWeight: 800 }}>읽기 전용</div>
+                      )}
                     </div>
                   </div>
                 );
@@ -615,6 +694,22 @@ export default function TrashMap() {
                 <div style={styles.smallStatTitle}>REMAINING</div>
                 <div style={{ ...styles.smallStatNumber, color: NAVY }}>{stats.pending}</div>
               </div>
+            </div>
+
+            <div style={styles.uidCard}>
+              <div style={styles.uidTitle}>내 UID</div>
+              <div style={styles.uidValue}>{user?.uid || "연결 중..."}</div>
+              <button
+                onClick={() => {
+                  if (user?.uid) {
+                    navigator.clipboard.writeText(user.uid);
+                    setMessage("UID가 복사되었습니다.");
+                  }
+                }}
+                style={styles.uidCopyButton}
+              >
+                UID 복사
+              </button>
             </div>
 
             {isAdmin && (
@@ -1095,6 +1190,39 @@ const styles: any = {
     fontSize: 54,
     fontWeight: 900,
     lineHeight: 1,
+  },
+  uidCard: {
+    background: "white",
+    borderRadius: 28,
+    padding: "24px 20px",
+    marginBottom: 24,
+    boxShadow: "0 10px 24px rgba(0,0,0,0.06)",
+  },
+  uidTitle: {
+    color: NAVY,
+    fontWeight: 900,
+    fontSize: 18,
+    marginBottom: 10,
+  },
+  uidValue: {
+    color: "#5c6674",
+    fontSize: 12,
+    fontWeight: 700,
+    wordBreak: "break-all",
+    lineHeight: 1.6,
+    background: "#f7faf8",
+    borderRadius: 12,
+    padding: "10px 12px",
+    marginBottom: 12,
+  },
+  uidCopyButton: {
+    border: "none",
+    background: NAVY,
+    color: "white",
+    borderRadius: 14,
+    padding: "10px 14px",
+    fontWeight: 800,
+    cursor: "pointer",
   },
   adminCard: {
     background: "#f9fcfa",
