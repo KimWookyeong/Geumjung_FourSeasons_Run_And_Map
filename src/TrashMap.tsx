@@ -3,20 +3,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, Marker, Popup, TileLayer, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import { onAuthStateChanged, signInAnonymously, signOut } from "firebase/auth";
-import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  getDocs,
-  onSnapshot,
-  orderBy,
-  query,
-  serverTimestamp,
-  updateDoc,
-  writeBatch,
-} from "firebase/firestore";
 import { auth, db } from "./firebase";
+import { get, onValue, push, ref, remove, update } from "firebase/database";
 
 const BG = "#edf8f1";
 const GREEN = "#19c37d";
@@ -24,10 +12,10 @@ const NAVY = "#162544";
 const BORDER = "#d7eee1";
 const LIGHT_TEXT = "#9aa7b6";
 
-const NAME_KEY = "four_seasons_run_map_name_v3";
+const NAME_KEY = "four_seasons_run_map_name_v4";
 const DEFAULT_CENTER: [number, number] = [35.243, 129.092];
 
-// 여기를 관리자 UID로 바꾸세요.
+// 🔥 관리자 UID로 바꾸세요
 const ADMIN_UID = "PUT_ADMIN_UID_HERE";
 
 const AREAS = [
@@ -326,14 +314,22 @@ export default function TrashMap() {
   }, []);
 
   useEffect(() => {
-    const q = query(collection(db, "reports"), orderBy("createdAtMs", "desc"));
-    const unsub = onSnapshot(
-      q,
+    const reportsRef = ref(db, "reports");
+    const unsub = onValue(
+      reportsRef,
       (snapshot) => {
-        const items = snapshot.docs.map((d) => ({
-          id: d.id,
-          ...d.data(),
+        const data = snapshot.val();
+        if (!data) {
+          setReports([]);
+          return;
+        }
+
+        const items = Object.entries(data).map(([id, value]: any) => ({
+          id,
+          ...value,
         }));
+
+        items.sort((a: any, b: any) => (b.createdAtMs || 0) - (a.createdAtMs || 0));
         setReports(items);
       },
       (error) => {
@@ -458,7 +454,7 @@ export default function TrashMap() {
       return;
     }
 
-    const baseReport = {
+    const reportData = {
       uid: user.uid,
       userName: nickname,
       category: formData.category,
@@ -467,12 +463,11 @@ export default function TrashMap() {
       image: formData.image || "",
       location: formData.location,
       status: "pending",
-      createdAt: serverTimestamp(),
       createdAtMs: Date.now(),
     };
 
     try {
-      await addDoc(collection(db, "reports"), baseReport);
+      await push(ref(db, "reports"), reportData);
       resetForm();
       setShowAddSheet(false);
       setActiveTab("map");
@@ -482,8 +477,8 @@ export default function TrashMap() {
 
       if (formData.image) {
         try {
-          await addDoc(collection(db, "reports"), {
-            ...baseReport,
+          await push(ref(db, "reports"), {
+            ...reportData,
             image: "",
           });
           resetForm();
@@ -505,7 +500,7 @@ export default function TrashMap() {
     if (!ok) return;
 
     try {
-      await deleteDoc(doc(db, "reports", id));
+      await remove(ref(db, `reports/${id}`));
       setMessage("삭제되었습니다.");
     } catch (error) {
       console.error(error);
@@ -515,7 +510,7 @@ export default function TrashMap() {
 
   const handleToggleStatus = async (id: string, currentStatus: string) => {
     try {
-      await updateDoc(doc(db, "reports", id), {
+      await update(ref(db, `reports/${id}`), {
         status: currentStatus === "pending" ? "solved" : "pending",
       });
     } catch (error) {
@@ -529,10 +524,7 @@ export default function TrashMap() {
     if (!ok) return;
 
     try {
-      const snapshot = await getDocs(collection(db, "reports"));
-      const batch = writeBatch(db);
-      snapshot.forEach((d) => batch.delete(d.ref));
-      await batch.commit();
+      await remove(ref(db, "reports"));
       setMessage("전체 데이터가 초기화되었습니다.");
     } catch (error) {
       console.error(error);
