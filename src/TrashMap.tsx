@@ -4,7 +4,7 @@ import { MapContainer, Marker, Popup, TileLayer, useMapEvents } from "react-leaf
 import L from "leaflet";
 import { onAuthStateChanged, signInAnonymously, signOut } from "firebase/auth";
 import { auth, db } from "./firebase";
-import { get, onValue, push, ref, remove, update } from "firebase/database";
+import { onValue, push, ref, remove, update } from "firebase/database";
 
 const BG = "#edf8f1";
 const GREEN = "#19c37d";
@@ -12,10 +12,10 @@ const NAVY = "#162544";
 const BORDER = "#d7eee1";
 const LIGHT_TEXT = "#9aa7b6";
 
-const NAME_KEY = "four_seasons_run_map_name_v4";
+const NAME_KEY = "four_seasons_run_map_name_v5";
 const DEFAULT_CENTER: [number, number] = [35.243, 129.092];
 
-// 🔥 관리자 UID로 바꾸세요
+// 관리자 UID로 바꾸세요
 const ADMIN_UID = "PUT_ADMIN_UID_HERE";
 
 const AREAS = [
@@ -508,14 +508,26 @@ export default function TrashMap() {
     }
   };
 
-  const handleToggleStatus = async (id: string, currentStatus: string) => {
+  const handleToggleStatus = async (report: any) => {
+    const isOwner = !!user && report.uid === user.uid;
+    const canSolve = report.status === "pending";
+    const canReopen = report.status === "solved" && (isOwner || isAdmin);
+
+    if (!canSolve && !canReopen) {
+      setMessage("이 상태는 변경할 수 없습니다.");
+      return;
+    }
+
+    const nextStatus = report.status === "pending" ? "solved" : "pending";
+
     try {
-      await update(ref(db, `reports/${id}`), {
-        status: currentStatus === "pending" ? "solved" : "pending",
+      await update(ref(db, `reports/${report.id}`), {
+        status: nextStatus,
       });
+      setMessage(nextStatus === "solved" ? "해결됨으로 변경되었습니다." : "진행중으로 변경되었습니다.");
     } catch (error) {
       console.error(error);
-      setMessage("상태 변경 권한이 없습니다.");
+      setMessage("상태 변경에 실패했습니다.");
     }
   };
 
@@ -623,8 +635,19 @@ export default function TrashMap() {
             ) : (
               reports.map((report) => {
                 const cat = getCategory(report.category);
-                const canDelete = isAdmin || (user && report.uid === user.uid);
-                const canToggle = isAdmin || (user && report.uid === user.uid);
+                const isOwner = !!user && report.uid === user.uid;
+
+                const canDelete = isAdmin || isOwner;
+                const canToggle =
+                  isAdmin ||
+                  report.status === "pending" ||
+                  (report.status === "solved" && isOwner);
+
+                const statusButtonStyle =
+                  report.status === "solved" ? styles.statusSolved : styles.statusPending;
+
+                const statusLabel =
+                  report.status === "solved" ? "해결됨 ✓" : "진행중";
 
                 return (
                   <div key={report.id} style={styles.feedCard}>
@@ -634,10 +657,14 @@ export default function TrashMap() {
                       </div>
 
                       <button
-                        onClick={() => canToggle && handleToggleStatus(report.id, report.status)}
-                        style={report.status === "solved" ? styles.statusSolved : styles.statusPending}
+                        onClick={() => canToggle && handleToggleStatus(report)}
+                        style={{
+                          ...statusButtonStyle,
+                          opacity: canToggle ? 1 : 0.55,
+                          cursor: canToggle ? "pointer" : "not-allowed",
+                        }}
                       >
-                        {report.status === "solved" ? "해결됨 ✓" : "진행중"}
+                        {statusLabel}
                       </button>
                     </div>
 
@@ -687,7 +714,7 @@ export default function TrashMap() {
               <div style={styles.adminCard}>
                 <div style={styles.adminTitle}>⚠ ADMIN TOOLS</div>
                 <div style={styles.adminDesc}>
-                  전체 활동 데이터를 즉시 삭제할 수 있습니다.
+                  모든 사용자의 피드를 삭제하거나 전체 초기화할 수 있습니다.
                   <br />
                   (삭제된 데이터는 복구가 불가합니다)
                 </div>
