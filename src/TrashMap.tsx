@@ -12,7 +12,7 @@ const NAVY = "#162544";
 const BORDER = "#d7eee1";
 const LIGHT_TEXT = "#9aa7b6";
 
-const NAME_KEY = "four_seasons_run_map_name_v6";
+const NAME_KEY = "four_seasons_run_map_name_v7";
 const DEFAULT_CENTER: [number, number] = [35.243, 129.092];
 const ADMIN_NAME = "admin";
 const ADMIN_CODE = "1234";
@@ -355,7 +355,18 @@ export default function TrashMap() {
   const stats = useMemo(() => {
     const solved = reports.filter((r) => r.status === "solved").length;
     const pending = reports.length - solved;
-    return { total: reports.length, solved, pending };
+
+    const categoryCounts = CATEGORIES.map((category) => ({
+      ...category,
+      count: reports.filter((r) => r.category === category.id).length,
+    }));
+
+    return {
+      total: reports.length,
+      solved,
+      pending,
+      categoryCounts,
+    };
   }, [reports]);
 
   const resetForm = () => {
@@ -729,6 +740,26 @@ export default function TrashMap() {
               <div style={styles.smallStatBox}>
                 <div style={styles.smallStatTitle}>REMAINING</div>
                 <div style={{ ...styles.smallStatNumber, color: NAVY }}>{stats.pending}</div>
+              </div>
+            </div>
+
+            <div style={styles.categoryStatsWrap}>
+              <div style={styles.categoryStatsTitle}>쓰레기 종류별 통계</div>
+              <div style={styles.categoryStatsGrid}>
+                {stats.categoryCounts.map((item) => (
+                  <div key={item.id} style={styles.categoryStatCard}>
+                    <div
+                      style={{
+                        ...styles.categoryStatIcon,
+                        background: item.color,
+                      }}
+                    >
+                      {item.icon}
+                    </div>
+                    <div style={styles.categoryStatLabel}>{item.label}</div>
+                    <div style={styles.categoryStatCount}>{item.count}</div>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -1216,6 +1247,61 @@ const styles: any = {
   },
   smallStatNumber: {
     fontSize: 42,
+    fontWeight: 900,
+    lineHeight: 1,
+  },
+  categoryStatsWrap: {
+    background: "white",
+    borderRadius: 28,
+    padding: "20px 16px",
+    boxShadow: "0 8px 18px rgba(0,0,0,0.05)",
+    marginBottom: 20,
+  },
+  categoryStatsTitle: {
+    color: NAVY,
+    fontWeight: 900,
+    fontSize: 18,
+    marginBottom: 14,
+  },
+  categoryStatsGrid: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: 12,
+  },
+  categoryStatCard: {
+    background: "#f8fbf9",
+    border: `1px solid ${BORDER}`,
+    borderRadius: 20,
+    padding: "14px 12px",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    textAlign: "center",
+    minHeight: 116,
+    justifyContent: "center",
+  },
+  categoryStatIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    color: "white",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 20,
+    marginBottom: 10,
+    boxShadow: "0 8px 16px rgba(0,0,0,0.10)",
+  },
+  categoryStatLabel: {
+    color: NAVY,
+    fontSize: 12,
+    fontWeight: 800,
+    marginBottom: 6,
+    lineHeight: 1.35,
+  },
+  categoryStatCount: {
+    color: GREEN,
+    fontSize: 24,
     fontWeight: 900,
     lineHeight: 1,
   },
