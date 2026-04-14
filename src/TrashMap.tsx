@@ -1556,11 +1556,16 @@ const styles: any = {
     transform: "translateX(-50%)",
     background: "#182742",
     color: "white",
-    padding: "10px 14px",
+    padding: "10px 18px",
     borderRadius: 14,
     zIndex: 4000,
     boxShadow: "0 12px 24px rgba(0,0,0,0.18)",
     fontWeight: 800,
     fontSize: 14,
+  
+    whiteSpace: "nowrap",
+    maxWidth: "90vw",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
   },
 };
