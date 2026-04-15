@@ -115,9 +115,18 @@ function ShieldLogo() {
   );
 }
 
-function CloverLogo({ size = 86 }: { size?: number }) {
+function CloverLogo({ size = 86, animated = false }: { size?: number; animated?: boolean }) {
   return (
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "8px 0 8px" }}>
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: 0,
+        animation: animated ? "cloverFloat 2.8s ease-in-out infinite" : "none",
+        transformOrigin: "center",
+      }}
+    >
       <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
         <g transform="translate(50,50)">
           {[0, 90, 180, 270].map((angle) => (
@@ -575,9 +584,20 @@ export default function TrashMap() {
       <div style={styles.joinScreen}>
         <style>{globalCss}</style>
         <div style={styles.joinWrap}>
-          <CloverLogo size={86} />
-          <div style={styles.joinTitle}>FOUR SEASONS</div>
-          <div style={styles.joinCaption}>금정구의 사계절을 기록하고 함께 지켜나가요</div>
+          <div style={styles.brandHero}>
+            <div style={styles.brandLogoPlain}>
+              <div style={styles.sparkleOne}>✨</div>
+              <div style={styles.sparkleTwo}>✨</div>
+              <CloverLogo size={74} animated />
+            </div>
+
+            <div style={styles.brandTextWrap}>
+              <div style={styles.joinTitle}>FOUR SEASONS</div>
+              <div style={styles.joinEyebrowPlain}>Run & Map Project 🍀</div>
+            </div>
+          </div>
+
+          <div style={styles.joinCaption}>우리 지역의 사계절을 기록하고 함께 지켜나가요</div>
 
           <div style={styles.joinCard}>
             <div style={styles.joinCardTitle}>활동가 합류</div>
@@ -919,9 +939,28 @@ const globalCss = `
     font-family: Arial, sans-serif;
     background: ${BG};
   }
+
   * { box-sizing: border-box; }
   button, input, textarea, select { font: inherit; }
   .leaflet-container { width: 100%; height: 100%; }
+
+  @keyframes cloverFloat {
+    0% { transform: translateY(0px) rotate(0deg) scale(1); }
+    25% { transform: translateY(-4px) rotate(-2deg) scale(1.03); }
+    50% { transform: translateY(0px) rotate(0deg) scale(1); }
+    75% { transform: translateY(-3px) rotate(2deg) scale(1.02); }
+    100% { transform: translateY(0px) rotate(0deg) scale(1); }
+  }
+
+  @keyframes sparkleBlink {
+    0%, 100% { opacity: 0.35; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.15); }
+  }
+
+  @keyframes heroFadeUp {
+    0% { opacity: 0; transform: translateY(10px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
 `;
 
 const styles: any = {
@@ -936,7 +975,7 @@ const styles: any = {
   joinScreen: {
     width: "100%",
     height: "100%",
-    background: BG,
+    background: "linear-gradient(180deg, #edf8f1 0%, #e6f6ee 100%)",
     overflowY: "auto",
   },
   joinWrap: {
@@ -946,36 +985,88 @@ const styles: any = {
     alignItems: "center",
     justifyContent: "center",
     padding: "24px 16px 36px",
+    animation: "heroFadeUp 0.6s ease",
+  },
+  brandHero: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 16,
+    flexWrap: "wrap",
+    marginBottom: 8,
+  },
+  brandLogoPlain: {
+    width: 90,
+    height: 90,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+    flexShrink: 0,
+  },
+  sparkleOne: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    fontSize: 14,
+    animation: "sparkleBlink 1.8s ease-in-out infinite",
+  },
+  sparkleTwo: {
+    position: "absolute",
+    bottom: 10,
+    left: 8,
+    fontSize: 12,
+    animation: "sparkleBlink 2.2s ease-in-out infinite",
+  },
+  brandTextWrap: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-start",
+    justifyContent: "center",
   },
   joinTitle: {
-    fontSize: 34,
+    fontSize: 36,
     fontWeight: 900,
     color: NAVY,
-    letterSpacing: "-0.04em",
-    marginTop: 4,
+    letterSpacing: "-0.05em",
+    marginTop: 0,
+    lineHeight: 0.95,
+    textAlign: "left",
+  },
+  joinEyebrowPlain: {
+    marginTop: 10,
+    fontSize: 15,
+    fontWeight: 800,
+    color: "#1fb874",
+    letterSpacing: "-0.02em",
+    lineHeight: 1.2,
+    textAlign: "center",
+    alignSelf: "center",
+    marginLeft: "-6px",
   },
   joinCaption: {
-    marginTop: 12,
-    background: "white",
+    marginTop: 20,
+    background: "rgba(255,255,255,0.9)",
     color: "#1fa574",
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: 800,
     borderRadius: 999,
-    padding: "8px 14px",
-    boxShadow: "0 4px 16px rgba(0,0,0,0.05)",
+    padding: "12px 18px",
+    boxShadow: "0 6px 18px rgba(0,0,0,0.04)",
     border: `1px solid ${BORDER}`,
     textAlign: "center",
-    whiteSpace: "nowrap",
     letterSpacing: "-0.02em",
+    whiteSpace: "nowrap",
   },
   joinCard: {
     width: "100%",
     maxWidth: 640,
-    background: "white",
-    borderRadius: 30,
+    background: "rgba(255,255,255,0.96)",
+    backdropFilter: "blur(8px)",
+    borderRadius: 34,
     marginTop: 28,
     padding: "32px 24px 24px",
-    boxShadow: "0 18px 36px rgba(0,0,0,0.08)",
+    boxShadow: "0 20px 40px rgba(0,0,0,0.08)",
     border: `1px solid ${BORDER}`,
   },
   joinCardTitle: {
@@ -996,13 +1087,13 @@ const styles: any = {
   },
   joinInput: {
     width: "100%",
-    background: "#f3f5f8",
+    background: "#f7faf8",
     border: "1px solid #e8edf3",
     borderRadius: 22,
     padding: "18px 14px",
     fontSize: 15,
     fontWeight: 800,
-    color: "#9ca4b0",
+    color: "#55606e",
     outline: "none",
     textAlign: "center",
     marginBottom: 14,
@@ -1012,7 +1103,7 @@ const styles: any = {
     border: "none",
     borderRadius: 24,
     padding: "20px 18px",
-    background: GREEN,
+    background: "linear-gradient(135deg, #19c37d 0%, #2dd4a3 100%)",
     color: "white",
     fontWeight: 900,
     fontSize: 22,
@@ -1562,7 +1653,6 @@ const styles: any = {
     boxShadow: "0 12px 24px rgba(0,0,0,0.18)",
     fontWeight: 800,
     fontSize: 14,
-  
     whiteSpace: "nowrap",
     maxWidth: "90vw",
     overflow: "hidden",
