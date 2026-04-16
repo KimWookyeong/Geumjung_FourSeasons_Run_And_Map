@@ -902,10 +902,7 @@ export default function TrashMap() {
                         {cat.icon} {report.area}
                       </div>
 
-                      <button
-                        onClick={() => handleToggleStatus(report)}
-                        style={statusButtonStyle}
-                      >
+                      <button onClick={() => handleToggleStatus(report)} style={statusButtonStyle}>
                         {statusLabel}
                       </button>
                     </div>
@@ -1065,7 +1062,7 @@ export default function TrashMap() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*,video/*"
+                accept=".jpg,.jpeg,.png,.webp,.gif,.bmp,.mp4,.mov,.avi,.m4v,.webm"
                 onChange={handleImageChange}
                 style={{ display: "none" }}
               />
@@ -1227,7 +1224,7 @@ const styles: any = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: 2,
     marginBottom: 12,
     flexWrap: "nowrap",
   },
@@ -1244,7 +1241,7 @@ const styles: any = {
     flexDirection: "column",
     alignItems: "flex-start",
     justifyContent: "center",
-    marginLeft: -2,
+    marginLeft: -6,
   },
   title: {
     fontSize: 34,
