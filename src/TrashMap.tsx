@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MapContainer, Marker, Popup, TileLayer, useMapEvents } from "react-leaflet";
+import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import { onAuthStateChanged, signInAnonymously, signOut } from "firebase/auth";
 import { auth, db } from "./firebase";
@@ -29,7 +29,8 @@ const AREAS = [
 const CATEGORIES = [
   { id: "cup", label: "일회용 컵", icon: "🥤", color: "#19c37d" },
   { id: "smoke", label: "담배꽁초", icon: "🚬", color: "#f59e0b" },
-  { id: "plastic", label: "플라스틱/비닐", icon: "🛍️", color: "#3b82f6" },
+  { id: "plastic", label: "플라스틱", icon: "🧴", color: "#3b82f6" },
+  { id: "vinyl", label: "비닐", icon: "🛍️", color: "#06b6d4" },
   { id: "bulky", label: "대형 폐기물", icon: "📦", color: "#8b5cf6" },
   { id: "etc", label: "기타 쓰레기", icon: "❓", color: "#64748b" },
 ];
@@ -81,6 +82,43 @@ function makePickerIcon() {
     `,
     iconSize: [20, 20],
     iconAnchor: [10, 10],
+  });
+}
+
+function makeCurrentLocationIcon() {
+  return L.divIcon({
+    className: "current-location-marker",
+    html: `
+      <div style="
+        position: relative;
+        width: 22px;
+        height: 22px;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+      ">
+        <div style="
+          position:absolute;
+          width:22px;
+          height:22px;
+          border-radius:50%;
+          background:rgba(59,130,246,0.22);
+          animation:pulseLocation 2s ease-out infinite;
+        "></div>
+        <div style="
+          width:12px;
+          height:12px;
+          border-radius:50%;
+          background:#2563eb;
+          border:3px solid white;
+          box-shadow:0 3px 10px rgba(37,99,235,0.35);
+          z-index:2;
+        "></div>
+      </div>
+    `,
+    iconSize: [22, 22],
+    iconAnchor: [11, 11],
+    popupAnchor: [0, -10],
   });
 }
 
@@ -186,6 +224,44 @@ function ClickLocationPicker({
   );
 }
 
+function CurrentLocationMarker({
+  currentLocation,
+}: {
+  currentLocation: { lat: number; lng: number } | null;
+}) {
+  if (!currentLocation) return null;
+
+  return (
+    <Marker position={[currentLocation.lat, currentLocation.lng]} icon={makeCurrentLocationIcon()}>
+      <Popup>현재 위치</Popup>
+    </Marker>
+  );
+}
+
+function RecenterToLocation({
+  currentLocation,
+  activeTab,
+}: {
+  currentLocation: { lat: number; lng: number } | null;
+  activeTab: string;
+}) {
+  const map = useMap();
+  const hasMovedRef = useRef(false);
+
+  useEffect(() => {
+    if (!currentLocation) return;
+    if (activeTab !== "map") return;
+    if (hasMovedRef.current) return;
+
+    map.setView([currentLocation.lat, currentLocation.lng], 16, {
+      animate: true,
+    });
+    hasMovedRef.current = true;
+  }, [currentLocation, map, activeTab]);
+
+  return null;
+}
+
 function Header({
   nickname,
   isAdmin,
@@ -261,6 +337,9 @@ export default function TrashMap() {
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [message, setMessage] = useState("");
   const [editingReportId, setEditingReportId] = useState<string | null>(null);
+  const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
+
+  const watchIdRef = useRef<number | null>(null);
 
   const [formData, setFormData] = useState({
     category: "cup",
@@ -320,6 +399,36 @@ export default function TrashMap() {
     );
 
     return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      (pos) => {
+        const next = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        };
+        setCurrentLocation(next);
+      },
+      (error) => {
+        if (error.code === 1) {
+          setMessage("위치 권한을 허용하면 현재 위치가 지도에 표시됩니다.");
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 10000,
+        timeout: 15000,
+      }
+    );
+
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -429,12 +538,14 @@ export default function TrashMap() {
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
+        const next = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        };
+        setCurrentLocation(next);
         setFormData((prev) => ({
           ...prev,
-          location: {
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-          },
+          location: next,
         }));
         setMessage("현재 위치를 불러왔습니다.");
       },
@@ -607,7 +718,7 @@ export default function TrashMap() {
 
         <div style={styles.joinWrap}>
           <div style={styles.brandHero}>
-            <img src={logo} alt="Four Seasons Logo" style={styles.logo} />
+            <img src={logo} alt="logo" style={styles.logo} />
 
             <div style={styles.brandText}>
               <div style={styles.title}>FOUR SEASONS</div>
@@ -666,6 +777,9 @@ export default function TrashMap() {
                   attribution="&copy; OpenStreetMap contributors"
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
+
+                <CurrentLocationMarker currentLocation={currentLocation} />
+                <RecenterToLocation currentLocation={currentLocation} activeTab={activeTab} />
 
                 {reports.map((report) => (
                   <Marker
@@ -863,6 +977,7 @@ export default function TrashMap() {
                   selectedLocation={formData.location}
                   onChange={(loc) => setFormData((prev) => ({ ...prev, location: loc }))}
                 />
+                <CurrentLocationMarker currentLocation={currentLocation} />
               </MapContainer>
             </div>
 
@@ -985,6 +1100,17 @@ const globalCss = `
     100% { transform: translateY(0px); }
   }
 
+  @keyframes pulseLocation {
+    0% {
+      transform: scale(0.7);
+      opacity: 0.7;
+    }
+    100% {
+      transform: scale(2.2);
+      opacity: 0;
+    }
+  }
+
   @keyframes heroFadeUp {
     0% { opacity: 0; transform: translateY(10px); }
     100% { opacity: 1; transform: translateY(0); }
@@ -1019,13 +1145,13 @@ const styles: any = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: 16,
+    gap: 18,
     marginBottom: 12,
     flexWrap: "nowrap",
   },
   logo: {
-    width: 80,
-    height: 80,
+    width: 96,
+    height: 96,
     objectFit: "contain",
     animation: "float 3s ease-in-out infinite",
     filter: "drop-shadow(0 10px 18px rgba(0,0,0,0.10))",
