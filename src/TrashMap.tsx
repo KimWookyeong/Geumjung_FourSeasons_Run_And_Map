@@ -1184,6 +1184,7 @@ const styles: any = {
     gap: 2,
     marginBottom: 12,
     flexWrap: "nowrap",
+    transform: "translateX(-10px)",
   },
   logo: {
     width: 96,
@@ -1346,7 +1347,7 @@ const styles: any = {
   recordFab: {
     position: "absolute",
     right: 18,
-    bottom: 96,
+    bottom: 102,
     border: "none",
     borderRadius: 999,
     background: "linear-gradient(135deg, #19c37d 0%, #2dd4a3 100%)",
@@ -1356,7 +1357,7 @@ const styles: any = {
     padding: "16px 20px",
     boxShadow: "0 16px 30px rgba(25,195,125,0.28)",
     cursor: "pointer",
-    zIndex: 50,
+    zIndex: 2500,
   },
   pageWrap: {
     height: "100%",
@@ -1600,6 +1601,8 @@ const styles: any = {
     cursor: "pointer",
   },
   bottomNav: {
+    position: "relative",
+    zIndex: 40,
     position: "fixed",
     left: 0,
     right: 0,
@@ -1649,9 +1652,10 @@ const styles: any = {
     display: "flex",
     alignItems: "flex-end",
     justifyContent: "center",
-    zIndex: 80,
+    zIndex: 4000,
   },
   addSheet: {
+    position: "relative",
     width: "100%",
     maxWidth: 720,
     maxHeight: "88vh",
@@ -1661,6 +1665,7 @@ const styles: any = {
     borderTopRightRadius: 28,
     padding: "18px 16px 24px",
     boxShadow: "0 -14px 32px rgba(0,0,0,0.18)",
+    zIndex: 4001,
   },
   sheetHeader: {
     display: "flex",
