@@ -852,17 +852,17 @@ export default function TrashMap() {
                   </Marker>
                 ))}
               </MapContainer>
-            </div>
 
-            <button
-              style={styles.recordFab}
-              onClick={() => {
-                resetForm();
-                setShowAddSheet(true);
-              }}
-            >
-              기록하기 +
-            </button>
+              <button
+                style={styles.recordFab}
+                onClick={() => {
+                  resetForm();
+                  setShowAddSheet(true);
+                }}
+              >
+                기록하기 +
+              </button>
+            </div>
           </div>
         )}
 
@@ -1339,23 +1339,28 @@ const styles: any = {
     width: "100%",
     height: "100%",
     position: "relative",
+    minHeight: 0,
+    overflow: "hidden",
   },
   fullMapWrap: {
     width: "100%",
     height: "100%",
+    position: "relative",
   },
   recordFab: {
     position: "absolute",
-    right: 18,
-    bottom: 102,
+    left: "50%",
+    transform: "translateX(-50%)",
+    bottom: 28,
     border: "none",
     borderRadius: 999,
-    background: "linear-gradient(135deg, #19c37d 0%, #2dd4a3 100%)",
+    background: "linear-gradient(135deg, #86efac 0%, #34d399 100%)",
     color: "white",
     fontSize: 16,
     fontWeight: 900,
-    padding: "16px 20px",
-    boxShadow: "0 16px 30px rgba(25,195,125,0.28)",
+    padding: "16px 24px",
+    minWidth: 168,
+    boxShadow: "0 14px 28px rgba(52,211,153,0.28)",
     cursor: "pointer",
     zIndex: 2500,
   },
