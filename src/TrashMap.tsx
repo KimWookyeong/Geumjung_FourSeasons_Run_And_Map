@@ -123,38 +123,6 @@ function makeCurrentLocationIcon() {
   });
 }
 
-function ShieldLogo() {
-  return (
-    <div
-      style={{
-        width: 38,
-        height: 38,
-        borderRadius: 12,
-        background: GREEN,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        boxShadow: "0 4px 12px rgba(25,195,125,0.22)",
-      }}
-    >
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-        <path
-          d="M12 2L19 5V11C19 16 15.8 20.4 12 22C8.2 20.4 5 16 5 11V5L12 2Z"
-          stroke="white"
-          strokeWidth="2"
-        />
-        <path
-          d="M9.2 12.1L11 13.9L14.8 10.1"
-          stroke="white"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    </div>
-  );
-}
-
 function MapNavIcon({ active }: { active: boolean }) {
   return (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -198,6 +166,20 @@ function StatsNavIcon({ active }: { active: boolean }) {
         stroke={active ? GREEN : "#b7c0ce"}
         strokeWidth="2.2"
         strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function ActivityNavIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M12 4L14.6 9.3L20.5 10.2L16.2 14.3L17.2 20.1L12 17.3L6.8 20.1L7.8 14.3L3.5 10.2L9.4 9.3L12 4Z"
+        stroke={active ? GREEN : "#b7c0ce"}
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+        fill={active ? "rgba(25,195,125,0.12)" : "none"}
       />
     </svg>
   );
@@ -279,21 +261,21 @@ function InitialMapFollow({
 }
 
 function Header({
+  logoSrc,
   nickname,
   isAdmin,
   onLogout,
 }: {
+  logoSrc: string;
   nickname: string;
   isAdmin: boolean;
   onLogout: () => void;
 }) {
   return (
     <header style={styles.headerBar}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <ShieldLogo />
-        <div style={{ fontSize: 20, fontWeight: 900, color: NAVY, letterSpacing: "-0.02em" }}>
-          FOUR SEASONS
-        </div>
+      <div style={styles.headerBrand}>
+        <img src={logoSrc} alt="logo" style={styles.headerLogo} />
+        <div style={styles.headerTitle}>FOUR SEASONS</div>
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -326,6 +308,7 @@ function BottomNav({
     { key: "map", label: "지도", icon: <MapNavIcon active={activeTab === "map"} /> },
     { key: "list", label: "피드", icon: <ListNavIcon active={activeTab === "list"} /> },
     { key: "stats", label: "통계", icon: <StatsNavIcon active={activeTab === "stats"} /> },
+    { key: "activity", label: "활동", icon: <ActivityNavIcon active={activeTab === "activity"} /> },
   ];
 
   return (
@@ -371,6 +354,56 @@ async function compressImage(file: File, maxWidth = 1280, maxHeight = 1280, qual
 
   ctx.drawImage(img, 0, 0, width, height);
   return canvas.toDataURL("image/jpeg", quality);
+}
+
+function getStartOfToday() {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+}
+
+function getStartOfWeek() {
+  const now = new Date();
+  const day = now.getDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  start.setDate(start.getDate() + mondayOffset);
+  start.setHours(0, 0, 0, 0);
+  return start.getTime();
+}
+
+function getBadgeByCount(count: number) {
+  if (count >= 20) return { title: "클린 마스터", emoji: "🏆", desc: "꾸준히 지역을 지키는 최고 기록자" };
+  if (count >= 10) return { title: "환경 지킴이", emoji: "🌿", desc: "지속적으로 기록을 남기는 실천가" };
+  if (count >= 5) return { title: "그린 러너", emoji: "🍀", desc: "환경 기록 습관이 자리잡은 활동가" };
+  if (count >= 1) return { title: "환경 새싹", emoji: "🌱", desc: "첫 실천을 시작한 멋진 참여자" };
+  return { title: "참여 준비중", emoji: "✨", desc: "첫 기록을 남기면 배지가 시작돼요" };
+}
+
+function buildRanking(reports: any[]) {
+  const userMap: Record<string, { name: string; count: number; solved: number }> = {};
+
+  reports.forEach((report) => {
+    const key = report.uid || report.userName || "unknown";
+    if (!userMap[key]) {
+      userMap[key] = {
+        name: report.userName || "이름 없음",
+        count: 0,
+        solved: 0,
+      };
+    }
+    userMap[key].count += 1;
+    if (report.status === "solved") userMap[key].solved += 1;
+  });
+
+  return Object.values(userMap)
+    .map((item) => ({
+      ...item,
+      badge: getBadgeByCount(item.count),
+    }))
+    .sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count;
+      return b.solved - a.solved;
+    });
 }
 
 export default function TrashMap() {
@@ -495,7 +528,6 @@ export default function TrashMap() {
   const stats = useMemo(() => {
     const solved = reports.filter((r) => r.status === "solved").length;
     const pending = reports.length - solved;
-
     const categoryCounts = CATEGORIES.map((category) => ({
       ...category,
       count: reports.filter((r) => r.category === category.id).length,
@@ -508,6 +540,31 @@ export default function TrashMap() {
       categoryCounts,
     };
   }, [reports]);
+
+  const activityData = useMemo(() => {
+    const startOfToday = getStartOfToday();
+    const startOfWeek = getStartOfWeek();
+    const todayCount = reports.filter((r) => (r.createdAtMs || 0) >= startOfToday).length;
+    const weekCount = reports.filter((r) => (r.createdAtMs || 0) >= startOfWeek).length;
+    const myReports = reports.filter((r) => user && r.uid === user.uid);
+    const myCount = myReports.length;
+    const mySolved = myReports.filter((r) => r.status === "solved").length;
+    const badge = getBadgeByCount(myCount);
+    const ranking = buildRanking(reports);
+    const totalUsers = ranking.length;
+    const myRank = ranking.findIndex((item) => item.name === nickname) + 1;
+
+    return {
+      todayCount,
+      weekCount,
+      myCount,
+      mySolved,
+      badge,
+      ranking,
+      totalUsers,
+      myRank: myRank || 0,
+    };
+  }, [reports, user, nickname]);
 
   const resetForm = () => {
     setEditingReportId(null);
@@ -815,7 +872,7 @@ export default function TrashMap() {
       <style>{globalCss}</style>
       {message ? <div style={styles.toast}>{message}</div> : null}
 
-      <Header nickname={nickname} isAdmin={isAdmin} onLogout={handleLogout} />
+      <Header logoSrc={logo} nickname={nickname} isAdmin={isAdmin} onLogout={handleLogout} />
 
       <main style={styles.mainArea}>
         {activeTab === "map" && (
@@ -982,6 +1039,85 @@ export default function TrashMap() {
                 </button>
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === "activity" && (
+          <div style={styles.pageWrap}>
+            <div style={styles.pageHeading}>MY ACTIVITY</div>
+
+            <div style={styles.badgeHero}>
+              <div style={styles.badgeEmoji}>{activityData.badge.emoji}</div>
+              <div>
+                <div style={styles.badgeTitle}>{activityData.badge.title}</div>
+                <div style={styles.badgeDesc}>{activityData.badge.desc}</div>
+              </div>
+            </div>
+
+            <div style={styles.statRow}>
+              <div style={styles.smallStatBox}>
+                <div style={styles.smallStatTitle}>MY RECORDS</div>
+                <div style={{ ...styles.smallStatNumber, color: GREEN }}>{activityData.myCount}</div>
+              </div>
+
+              <div style={styles.smallStatBox}>
+                <div style={styles.smallStatTitle}>MY SOLVED</div>
+                <div style={{ ...styles.smallStatNumber, color: NAVY }}>{activityData.mySolved}</div>
+              </div>
+            </div>
+
+            <div style={styles.statRow}>
+              <div style={styles.smallStatBox}>
+                <div style={styles.smallStatTitle}>TODAY</div>
+                <div style={{ ...styles.smallStatNumber, color: GREEN }}>{activityData.todayCount}</div>
+              </div>
+
+              <div style={styles.smallStatBox}>
+                <div style={styles.smallStatTitle}>THIS WEEK</div>
+                <div style={{ ...styles.smallStatNumber, color: NAVY }}>{activityData.weekCount}</div>
+              </div>
+            </div>
+
+            <div style={styles.statRow}>
+              <div style={styles.smallStatBox}>
+                <div style={styles.smallStatTitle}>ALL USERS</div>
+                <div style={{ ...styles.smallStatNumber, color: GREEN }}>{activityData.totalUsers}</div>
+              </div>
+
+              <div style={styles.smallStatBox}>
+                <div style={styles.smallStatTitle}>MY RANK</div>
+                <div style={{ ...styles.smallStatNumber, color: NAVY }}>
+                  {activityData.myRank ? `${activityData.myRank}위` : "-"}
+                </div>
+              </div>
+            </div>
+
+            <div style={styles.rankingWrap}>
+              <div style={styles.rankingTitle}>전체 사용자 기록 랭킹</div>
+
+              {activityData.ranking.length === 0 ? (
+                <div style={styles.rankingEmpty}>아직 랭킹 데이터가 없습니다.</div>
+              ) : (
+                activityData.ranking.slice(0, 10).map((item, index) => (
+                  <div key={`${item.name}-${index}`} style={styles.rankingItem}>
+                    <div style={styles.rankingLeft}>
+                      <div style={styles.rankingIndex}>{index + 1}</div>
+                      <div>
+                        <div style={styles.rankingName}>{item.name}</div>
+                        <div style={styles.rankingBadge}>
+                          {item.badge.emoji} {item.badge.title}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={styles.rankingRight}>
+                      <div style={styles.rankingCount}>{item.count}</div>
+                      <div style={styles.rankingLabel}>기록</div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         )}
       </main>
@@ -1152,7 +1288,6 @@ const globalCss = `
   }
 `;
 
-
 const styles: any = {
   appShell: {
     width: "100%",
@@ -1297,6 +1432,25 @@ const styles: any = {
     boxShadow: "0 4px 18px rgba(0,0,0,0.04)",
     zIndex: 30,
   },
+  headerBrand: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    minWidth: 0,
+  },
+  headerLogo: {
+    width: 48,
+    height: 48,
+    objectFit: "contain",
+    flexShrink: 0,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 900,
+    color: NAVY,
+    letterSpacing: "-0.02em",
+    whiteSpace: "nowrap",
+  },
   adminPill: {
     background: "#162544",
     color: "white",
@@ -1339,8 +1493,6 @@ const styles: any = {
     width: "100%",
     height: "100%",
     position: "relative",
-    minHeight: 0,
-    overflow: "hidden",
   },
   fullMapWrap: {
     width: "100%",
@@ -1478,6 +1630,41 @@ const styles: any = {
     fontWeight: 900,
     cursor: "pointer",
   },
+  badgeHero: {
+    display: "flex",
+    alignItems: "center",
+    gap: 14,
+    background: "linear-gradient(135deg, #f4fff7 0%, #ebfff4 100%)",
+    border: `1px solid ${BORDER}`,
+    borderRadius: 26,
+    padding: "18px 16px",
+    boxShadow: "0 10px 24px rgba(0,0,0,0.05)",
+    marginBottom: 14,
+  },
+  badgeEmoji: {
+    width: 54,
+    height: 54,
+    borderRadius: 18,
+    background: "white",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 26,
+    boxShadow: "0 8px 18px rgba(0,0,0,0.05)",
+    flexShrink: 0,
+  },
+  badgeTitle: {
+    color: NAVY,
+    fontSize: 18,
+    fontWeight: 900,
+  },
+  badgeDesc: {
+    marginTop: 6,
+    color: LIGHT_TEXT,
+    fontSize: 13,
+    fontWeight: 700,
+    lineHeight: 1.5,
+  },
   totalBox: {
     background: "white",
     borderRadius: 28,
@@ -1575,6 +1762,86 @@ const styles: any = {
     fontWeight: 900,
     lineHeight: 1,
   },
+  rankingWrap: {
+    marginTop: 16,
+    background: "white",
+    borderRadius: 26,
+    padding: 16,
+    border: `1px solid ${BORDER}`,
+    boxShadow: "0 10px 24px rgba(0,0,0,0.05)",
+  },
+  rankingTitle: {
+    color: NAVY,
+    fontSize: 15,
+    fontWeight: 900,
+    marginBottom: 12,
+  },
+  rankingEmpty: {
+    color: LIGHT_TEXT,
+    fontSize: 14,
+    fontWeight: 700,
+    textAlign: "center",
+    padding: "18px 0",
+  },
+  rankingItem: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    padding: "14px 8px",
+    borderBottom: "1px solid #eef3f0",
+  },
+  rankingLeft: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    minWidth: 0,
+  },
+  rankingIndex: {
+    width: 32,
+    height: 32,
+    borderRadius: 12,
+    background: "#f2fbf6",
+    color: GREEN,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 900,
+    fontSize: 14,
+    flexShrink: 0,
+  },
+  rankingName: {
+    color: NAVY,
+    fontSize: 15,
+    fontWeight: 900,
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    maxWidth: 180,
+  },
+  rankingBadge: {
+    marginTop: 4,
+    color: LIGHT_TEXT,
+    fontSize: 12,
+    fontWeight: 800,
+  },
+  rankingRight: {
+    textAlign: "right",
+    flexShrink: 0,
+  },
+  rankingCount: {
+    color: NAVY,
+    fontSize: 22,
+    fontWeight: 900,
+    lineHeight: 1,
+  },
+  rankingLabel: {
+    marginTop: 4,
+    color: LIGHT_TEXT,
+    fontSize: 11,
+    fontWeight: 900,
+    letterSpacing: "0.04em",
+  },
   adminCard: {
     marginTop: 16,
     background: "#162544",
@@ -1606,8 +1873,6 @@ const styles: any = {
     cursor: "pointer",
   },
   bottomNav: {
-    position: "relative",
-    zIndex: 40,
     position: "fixed",
     left: 0,
     right: 0,
@@ -1616,7 +1881,7 @@ const styles: any = {
     background: "rgba(255,255,255,0.96)",
     borderTop: "1px solid #e7eef5",
     display: "grid",
-    gridTemplateColumns: "1fr 1fr 1fr",
+    gridTemplateColumns: "1fr 1fr 1fr 1fr",
     padding: "8px 10px max(8px, env(safe-area-inset-bottom))",
     zIndex: 40,
     boxShadow: "0 -8px 20px rgba(0,0,0,0.04)",
