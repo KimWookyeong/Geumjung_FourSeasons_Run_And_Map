@@ -5,6 +5,7 @@ import L from "leaflet";
 import { onAuthStateChanged, signInAnonymously, signOut } from "firebase/auth";
 import { auth, db } from "./firebase";
 import { onValue, push, ref, remove, update } from "firebase/database";
+import fourSeasonsLogo from "./assets/four-seasons-logo.png";
 
 const BG = "#edf8f1";
 const GREEN = "#19c37d";
@@ -110,37 +111,6 @@ function ShieldLogo() {
           strokeLinecap="round"
           strokeLinejoin="round"
         />
-      </svg>
-    </div>
-  );
-}
-
-function CloverLogo({ size = 86, animated = false }: { size?: number; animated?: boolean }) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        padding: 0,
-        animation: animated ? "cloverFloat 2.8s ease-in-out infinite" : "none",
-        transformOrigin: "center",
-      }}
-    >
-      <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
-        <g transform="translate(50,50)">
-          {[0, 90, 180, 270].map((angle) => (
-            <path
-              key={angle}
-              d="M0 0C-16 -24 -34 -14 -34 0C-34 14 -16 24 0 0ZM0 0C16 -24 34 -14 34 0C34 14 16 24 0 0Z"
-              fill={GREEN}
-              stroke="#0d5d45"
-              strokeWidth="2"
-              transform={`rotate(${angle})`}
-            />
-          ))}
-        </g>
-        <circle cx="50" cy="50" r="8" fill="white" opacity="0.45" />
       </svg>
     </div>
   );
@@ -638,10 +608,8 @@ export default function TrashMap() {
         <style>{globalCss}</style>
         <div style={styles.joinWrap}>
           <div style={styles.brandHero}>
-            <div style={styles.brandLogoPlain}>
-              <div style={styles.sparkleOne}>✨</div>
-              <div style={styles.sparkleTwo}>✨</div>
-              <CloverLogo size={74} animated />
+            <div style={styles.brandLogoImageWrap}>
+              <img src={fourSeasonsLogo} alt="Four Seasons Logo" style={styles.brandLogoImage} />
             </div>
 
             <div style={styles.brandTextWrap}>
@@ -1023,11 +991,6 @@ const globalCss = `
     100% { transform: translateY(0px) rotate(0deg) scale(1); }
   }
 
-  @keyframes sparkleBlink {
-    0%, 100% { opacity: 0.35; transform: scale(1); }
-    50% { opacity: 1; transform: scale(1.15); }
-  }
-
   @keyframes heroFadeUp {
     0% { opacity: 0; transform: translateY(10px); }
     100% { opacity: 1; transform: translateY(0); }
@@ -1062,32 +1025,24 @@ const styles: any = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: 16,
+    gap: 18,
     flexWrap: "wrap",
     marginBottom: 8,
   },
-  brandLogoPlain: {
-    width: 90,
-    height: 90,
+  brandLogoImageWrap: {
+    width: 110,
+    height: 110,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    position: "relative",
     flexShrink: 0,
   },
-  sparkleOne: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    fontSize: 14,
-    animation: "sparkleBlink 1.8s ease-in-out infinite",
-  },
-  sparkleTwo: {
-    position: "absolute",
-    bottom: 10,
-    left: 8,
-    fontSize: 12,
-    animation: "sparkleBlink 2.2s ease-in-out infinite",
+  brandLogoImage: {
+    width: "100%",
+    height: "100%",
+    objectFit: "contain",
+    animation: "cloverFloat 2.8s ease-in-out infinite",
+    filter: "drop-shadow(0 10px 18px rgba(0,0,0,0.10))",
   },
   brandTextWrap: {
     display: "flex",
