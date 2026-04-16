@@ -482,6 +482,16 @@ export default function TrashMap() {
     return () => clearTimeout(timer);
   }, [message]);
 
+  useEffect(() => {
+    if (showAddSheet && currentLocation) {
+      setFormData((prev) => ({
+        ...prev,
+        location: currentLocation,
+      }));
+      setMiniMapTarget(currentLocation);
+    }
+  }, [showAddSheet, currentLocation]);
+
   const isAdmin = nickname.trim().toLowerCase() === ADMIN_NAME && savedAdminCode === ADMIN_CODE;
 
   const stats = useMemo(() => {
@@ -1227,6 +1237,7 @@ const styles: any = {
     gap: 2,
     marginBottom: 12,
     flexWrap: "nowrap",
+    transform: "translateX(-12px)",
   },
   logo: {
     width: 96,
