@@ -24,6 +24,7 @@ const AREAS = [
   "구서/남산동",
   "금사/서동",
   "금정산/노포동",
+  "기타",
 ];
 
 const CATEGORIES = [
@@ -385,6 +386,7 @@ export default function TrashMap() {
   const [editingReportId, setEditingReportId] = useState<string | null>(null);
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [miniMapTarget, setMiniMapTarget] = useState<{ lat: number; lng: number } | null>(null);
+  const [showUploadChooser, setShowUploadChooser] = useState(false);
 
   const watchIdRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -502,6 +504,7 @@ export default function TrashMap() {
   const resetForm = () => {
     setEditingReportId(null);
     setMiniMapTarget(null);
+    setShowUploadChooser(false);
     setFormData({
       category: "cup",
       area: AREAS[0],
@@ -608,6 +611,11 @@ export default function TrashMap() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (file.type.startsWith("video/")) {
+      setMessage("현재 버전에서는 동영상 저장을 지원하지 않습니다. 사진만 업로드해 주세요.");
+      return;
+    }
+
     if (!file.type.startsWith("image/")) {
       setMessage("이미지 파일만 올릴 수 있습니다.");
       return;
@@ -616,11 +624,22 @@ export default function TrashMap() {
     try {
       const compressed = await compressImage(file);
       setFormData((prev) => ({ ...prev, image: compressed }));
+      setShowUploadChooser(false);
       setMessage("사진이 첨부되었습니다.");
     } catch (error) {
       console.error(error);
       setMessage("사진 처리에 실패했습니다.");
     }
+  };
+
+  const openCameraUpload = () => {
+    setShowUploadChooser(false);
+    cameraInputRef.current?.click();
+  };
+
+  const openFileUpload = () => {
+    setShowUploadChooser(false);
+    fileInputRef.current?.click();
   };
 
   const handleSave = async () => {
@@ -868,7 +887,6 @@ export default function TrashMap() {
               reports.map((report) => {
                 const cat = getCategory(report.category);
                 const isOwner = !!user && report.uid === user.uid;
-
                 const canDelete = isAdmin || isOwner;
                 const canEdit = isAdmin || isOwner;
 
@@ -1020,36 +1038,37 @@ export default function TrashMap() {
 
             <div style={styles.helpCopy}>작은 지도에서 위치를 한 번 눌러 주세요.</div>
 
-            <div style={styles.topActionGridThree}>
+            <div style={styles.topActionGrid}>
               <button type="button" onClick={handleCurrentLocation} style={styles.actionCardDark}>
                 <div style={{ fontSize: 20 }}>📍</div>
                 <div style={styles.actionCardLabelWhite}>내 위치 잡기</div>
               </button>
 
-              <label style={styles.actionCardLight}>
-                <input
-                  ref={cameraInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handleImageChange}
-                  style={{ display: "none" }}
-                />
-                <div style={{ fontSize: 20, color: GREEN }}>📸</div>
-                <div style={styles.actionCardLabelGreen}>사진 촬영</div>
-              </label>
+              <button
+                type="button"
+                onClick={() => setShowUploadChooser(true)}
+                style={styles.actionCardLightButton}
+              >
+                <div style={{ fontSize: 20, color: GREEN }}>📷</div>
+                <div style={styles.actionCardLabelGreen}>사진업로드</div>
+              </button>
 
-              <label style={styles.actionCardLight}>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageChange}
-                  style={{ display: "none" }}
-                />
-                <div style={{ fontSize: 20, color: GREEN }}>🖼️</div>
-                <div style={styles.actionCardLabelGreen}>갤러리</div>
-              </label>
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleImageChange}
+                style={{ display: "none" }}
+              />
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,video/*"
+                onChange={handleImageChange}
+                style={{ display: "none" }}
+              />
             </div>
 
             {formData.image ? (
@@ -1113,6 +1132,30 @@ export default function TrashMap() {
               {user ? (editingReportId ? "수정 내용 저장" : "지도에 업로드") : "로그인 연결 중..."}
             </button>
           </div>
+
+          {showUploadChooser && (
+            <div style={styles.uploadChooserBackdrop} onClick={() => setShowUploadChooser(false)}>
+              <div style={styles.uploadChooserCard} onClick={(e) => e.stopPropagation()}>
+                <div style={styles.uploadChooserTitle}>사진업로드</div>
+
+                <button type="button" onClick={openCameraUpload} style={styles.uploadChooserButton}>
+                  카메라 촬영
+                </button>
+
+                <button type="button" onClick={openFileUpload} style={styles.uploadChooserButton}>
+                  사진·동영상 선택
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowUploadChooser(false)}
+                  style={styles.uploadChooserCancel}
+                >
+                  취소
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -1184,7 +1227,7 @@ const styles: any = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: 18,
+    gap: 8,
     marginBottom: 12,
     flexWrap: "nowrap",
   },
@@ -1201,6 +1244,7 @@ const styles: any = {
     flexDirection: "column",
     alignItems: "flex-start",
     justifyContent: "center",
+    marginLeft: -2,
   },
   title: {
     fontSize: 34,
@@ -1656,6 +1700,7 @@ const styles: any = {
     borderTopRightRadius: 30,
     padding: "18px 14px 22px",
     boxShadow: "0 -14px 36px rgba(0,0,0,0.16)",
+    position: "relative",
   },
   sheetHeader: {
     display: "flex",
@@ -1692,10 +1737,10 @@ const styles: any = {
     marginBottom: 12,
     textAlign: "center",
   },
-  topActionGridThree: {
+  topActionGrid: {
     display: "grid",
-    gridTemplateColumns: "1fr 1fr 1fr",
-    gap: 10,
+    gridTemplateColumns: "1fr 1fr",
+    gap: 12,
     marginBottom: 12,
   },
   actionCardDark: {
@@ -1712,12 +1757,11 @@ const styles: any = {
     boxShadow: "0 8px 18px rgba(22,37,68,0.18)",
     cursor: "pointer",
   },
-  actionCardLight: {
+  actionCardLightButton: {
     height: 84,
     borderRadius: 22,
     background: "white",
     border: `2px dashed ${BORDER}`,
-    color: GREEN,
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
@@ -1725,8 +1769,6 @@ const styles: any = {
     gap: 5,
     boxShadow: "0 8px 16px rgba(0,0,0,0.04)",
     cursor: "pointer",
-    overflow: "hidden",
-    position: "relative",
   },
   actionCardLabelWhite: {
     fontSize: 11,
@@ -1823,6 +1865,54 @@ const styles: any = {
     padding: "20px 16px",
     cursor: "pointer",
     boxShadow: "0 14px 24px rgba(25,195,125,0.20)",
+  },
+  uploadChooserBackdrop: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.18)",
+    display: "flex",
+    alignItems: "flex-end",
+    justifyContent: "center",
+    zIndex: 3000,
+  },
+  uploadChooserCard: {
+    width: "100%",
+    maxWidth: 520,
+    background: "white",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: "18px 16px 22px",
+    boxShadow: "0 -10px 30px rgba(0,0,0,0.16)",
+  },
+  uploadChooserTitle: {
+    textAlign: "center",
+    color: NAVY,
+    fontSize: 17,
+    fontWeight: 900,
+    marginBottom: 14,
+  },
+  uploadChooserButton: {
+    width: "100%",
+    border: "none",
+    background: "#f5faf7",
+    color: NAVY,
+    fontWeight: 800,
+    fontSize: 15,
+    borderRadius: 16,
+    padding: "16px 14px",
+    marginBottom: 10,
+    cursor: "pointer",
+  },
+  uploadChooserCancel: {
+    width: "100%",
+    border: "none",
+    background: "#eef2f7",
+    color: "#6b7280",
+    fontWeight: 800,
+    fontSize: 15,
+    borderRadius: 16,
+    padding: "16px 14px",
+    cursor: "pointer",
   },
   toast: {
     position: "fixed",
