@@ -238,7 +238,27 @@ function CurrentLocationMarker({
   );
 }
 
-function RecenterToLocation({
+function RecenterMap({
+  targetLocation,
+  zoom = 16,
+}: {
+  targetLocation: { lat: number; lng: number } | null;
+  zoom?: number;
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!targetLocation) return;
+    map.flyTo([targetLocation.lat, targetLocation.lng], zoom, {
+      animate: true,
+      duration: 0.8,
+    });
+  }, [targetLocation, zoom, map]);
+
+  return null;
+}
+
+function InitialMapFollow({
   currentLocation,
   activeTab,
 }: {
@@ -249,15 +269,10 @@ function RecenterToLocation({
   const hasMovedRef = useRef(false);
 
   useEffect(() => {
-    if (!currentLocation) return;
-    if (activeTab !== "map") return;
-    if (hasMovedRef.current) return;
-
-    map.setView([currentLocation.lat, currentLocation.lng], 16, {
-      animate: true,
-    });
+    if (!currentLocation || activeTab !== "map" || hasMovedRef.current) return;
+    map.setView([currentLocation.lat, currentLocation.lng], 16, { animate: true });
     hasMovedRef.current = true;
-  }, [currentLocation, map, activeTab]);
+  }, [currentLocation, activeTab, map]);
 
   return null;
 }
@@ -326,6 +341,37 @@ function BottomNav({
   );
 }
 
+async function compressImage(file: File, maxWidth = 1280, maxHeight = 1280, quality = 0.82): Promise<string> {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = dataUrl;
+  });
+
+  let { width, height } = img;
+  const ratio = Math.min(maxWidth / width, maxHeight / height, 1);
+  width = Math.round(width * ratio);
+  height = Math.round(height * ratio);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return dataUrl;
+
+  ctx.drawImage(img, 0, 0, width, height);
+  return canvas.toDataURL("image/jpeg", quality);
+}
+
 export default function TrashMap() {
   const [nickname, setNickname] = useState("");
   const [nicknameInput, setNicknameInput] = useState("");
@@ -338,8 +384,11 @@ export default function TrashMap() {
   const [message, setMessage] = useState("");
   const [editingReportId, setEditingReportId] = useState<string | null>(null);
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [miniMapTarget, setMiniMapTarget] = useState<{ lat: number; lng: number } | null>(null);
 
   const watchIdRef = useRef<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
   const [formData, setFormData] = useState({
     category: "cup",
@@ -348,8 +397,6 @@ export default function TrashMap() {
     image: "",
     location: null as { lat: number; lng: number } | null,
   });
-
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     setNickname(localStorage.getItem(NAME_KEY) || "");
@@ -412,11 +459,7 @@ export default function TrashMap() {
         };
         setCurrentLocation(next);
       },
-      (error) => {
-        if (error.code === 1) {
-          setMessage("위치 권한을 허용하면 현재 위치가 지도에 표시됩니다.");
-        }
-      },
+      () => {},
       {
         enableHighAccuracy: true,
         maximumAge: 10000,
@@ -458,6 +501,7 @@ export default function TrashMap() {
 
   const resetForm = () => {
     setEditingReportId(null);
+    setMiniMapTarget(null);
     setFormData({
       category: "cup",
       area: AREAS[0],
@@ -466,11 +510,13 @@ export default function TrashMap() {
       location: null,
     });
     if (fileInputRef.current) fileInputRef.current.value = "";
+    if (cameraInputRef.current) cameraInputRef.current.value = "";
   };
 
   const removeSelectedImage = () => {
     setFormData((prev) => ({ ...prev, image: "" }));
     if (fileInputRef.current) fileInputRef.current.value = "";
+    if (cameraInputRef.current) cameraInputRef.current.value = "";
     setMessage("사진이 삭제되었습니다.");
   };
 
@@ -482,6 +528,7 @@ export default function TrashMap() {
     }
 
     setEditingReportId(report.id);
+    setMiniMapTarget(report.location || null);
     setFormData({
       category: report.category || "cup",
       area: report.area || AREAS[0],
@@ -543,6 +590,7 @@ export default function TrashMap() {
           lng: pos.coords.longitude,
         };
         setCurrentLocation(next);
+        setMiniMapTarget(next);
         setFormData((prev) => ({
           ...prev,
           location: next,
@@ -556,7 +604,7 @@ export default function TrashMap() {
     );
   };
 
-  const handleImageChange = (e: any) => {
+  const handleImageChange = async (e: any) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -565,12 +613,14 @@ export default function TrashMap() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      setFormData((prev) => ({ ...prev, image: reader.result as string }));
+    try {
+      const compressed = await compressImage(file);
+      setFormData((prev) => ({ ...prev, image: compressed }));
       setMessage("사진이 첨부되었습니다.");
-    };
-    reader.readAsDataURL(file);
+    } catch (error) {
+      console.error(error);
+      setMessage("사진 처리에 실패했습니다.");
+    }
   };
 
   const handleSave = async () => {
@@ -676,15 +726,6 @@ export default function TrashMap() {
   };
 
   const handleToggleStatus = async (report: any) => {
-    const isOwner = !!user && report.uid === user.uid;
-    const canSolve = report.status === "pending";
-    const canReopen = report.status === "solved" && (isOwner || isAdmin);
-
-    if (!canSolve && !canReopen) {
-      setMessage("이 상태는 변경할 수 없습니다.");
-      return;
-    }
-
     const nextStatus = report.status === "pending" ? "solved" : "pending";
 
     try {
@@ -779,7 +820,7 @@ export default function TrashMap() {
                 />
 
                 <CurrentLocationMarker currentLocation={currentLocation} />
-                <RecenterToLocation currentLocation={currentLocation} activeTab={activeTab} />
+                <InitialMapFollow currentLocation={currentLocation} activeTab={activeTab} />
 
                 {reports.map((report) => (
                   <Marker
@@ -830,10 +871,6 @@ export default function TrashMap() {
 
                 const canDelete = isAdmin || isOwner;
                 const canEdit = isAdmin || isOwner;
-                const canToggle =
-                  isAdmin ||
-                  report.status === "pending" ||
-                  (report.status === "solved" && isOwner);
 
                 const statusButtonStyle =
                   report.status === "solved" ? styles.statusSolved : styles.statusPending;
@@ -848,12 +885,8 @@ export default function TrashMap() {
                       </div>
 
                       <button
-                        onClick={() => canToggle && handleToggleStatus(report)}
-                        style={{
-                          ...statusButtonStyle,
-                          opacity: canToggle ? 1 : 0.55,
-                          cursor: canToggle ? "pointer" : "not-allowed",
-                        }}
+                        onClick={() => handleToggleStatus(report)}
+                        style={statusButtonStyle}
                       >
                         {statusLabel}
                       </button>
@@ -975,19 +1008,36 @@ export default function TrashMap() {
                 />
                 <ClickLocationPicker
                   selectedLocation={formData.location}
-                  onChange={(loc) => setFormData((prev) => ({ ...prev, location: loc }))}
+                  onChange={(loc) => {
+                    setFormData((prev) => ({ ...prev, location: loc }));
+                    setMiniMapTarget(loc);
+                  }}
                 />
                 <CurrentLocationMarker currentLocation={currentLocation} />
+                <RecenterMap targetLocation={miniMapTarget} zoom={17} />
               </MapContainer>
             </div>
 
             <div style={styles.helpCopy}>작은 지도에서 위치를 한 번 눌러 주세요.</div>
 
-            <div style={styles.topActionGrid}>
+            <div style={styles.topActionGridThree}>
               <button type="button" onClick={handleCurrentLocation} style={styles.actionCardDark}>
                 <div style={{ fontSize: 20 }}>📍</div>
                 <div style={styles.actionCardLabelWhite}>내 위치 잡기</div>
               </button>
+
+              <label style={styles.actionCardLight}>
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleImageChange}
+                  style={{ display: "none" }}
+                />
+                <div style={{ fontSize: 20, color: GREEN }}>📸</div>
+                <div style={styles.actionCardLabelGreen}>사진 촬영</div>
+              </label>
 
               <label style={styles.actionCardLight}>
                 <input
@@ -997,30 +1047,19 @@ export default function TrashMap() {
                   onChange={handleImageChange}
                   style={{ display: "none" }}
                 />
-
-                {formData.image ? (
-                  <div style={styles.previewWrap}>
-                    <img src={formData.image} alt="preview" style={styles.uploadPreview} />
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        removeSelectedImage();
-                      }}
-                      style={styles.removeImageButton}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <div style={{ fontSize: 20, color: GREEN }}>📷</div>
-                    <div style={styles.actionCardLabelGreen}>사진 업로드</div>
-                  </>
-                )}
+                <div style={{ fontSize: 20, color: GREEN }}>🖼️</div>
+                <div style={styles.actionCardLabelGreen}>갤러리</div>
               </label>
             </div>
+
+            {formData.image ? (
+              <div style={styles.previewPanel}>
+                <img src={formData.image} alt="preview" style={styles.previewPanelImage} />
+                <button type="button" onClick={removeSelectedImage} style={styles.previewRemoveButton}>
+                  사진 삭제
+                </button>
+              </div>
+            ) : null}
 
             <select
               value={formData.area}
@@ -1169,6 +1208,7 @@ const styles: any = {
     color: NAVY,
     letterSpacing: "-0.04em",
     lineHeight: 1,
+    whiteSpace: "nowrap",
   },
   subtitle: {
     marginTop: 8,
@@ -1652,10 +1692,10 @@ const styles: any = {
     marginBottom: 12,
     textAlign: "center",
   },
-  topActionGrid: {
+  topActionGridThree: {
     display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: 12,
+    gridTemplateColumns: "1fr 1fr 1fr",
+    gap: 10,
     marginBottom: 12,
   },
   actionCardDark: {
@@ -1671,11 +1711,6 @@ const styles: any = {
     gap: 5,
     boxShadow: "0 8px 18px rgba(22,37,68,0.18)",
     cursor: "pointer",
-  },
-  actionCardLabelWhite: {
-    fontSize: 11,
-    fontWeight: 900,
-    color: "white",
   },
   actionCardLight: {
     height: 84,
@@ -1693,38 +1728,42 @@ const styles: any = {
     overflow: "hidden",
     position: "relative",
   },
+  actionCardLabelWhite: {
+    fontSize: 11,
+    fontWeight: 900,
+    color: "white",
+    textAlign: "center",
+  },
   actionCardLabelGreen: {
     fontSize: 11,
     fontWeight: 900,
     color: GREEN,
+    textAlign: "center",
   },
-  previewWrap: {
-    position: "relative",
-    width: "100%",
-    height: "100%",
+  previewPanel: {
+    background: "white",
+    borderRadius: 20,
+    padding: 10,
+    marginBottom: 12,
+    boxShadow: "0 8px 16px rgba(0,0,0,0.04)",
   },
-  uploadPreview: {
+  previewPanelImage: {
     width: "100%",
-    height: "100%",
+    height: 180,
     objectFit: "cover",
+    borderRadius: 16,
+    marginBottom: 10,
   },
-  removeImageButton: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    width: 26,
-    height: 26,
-    borderRadius: "50%",
+  previewRemoveButton: {
+    width: "100%",
     border: "none",
-    background: "rgba(0,0,0,0.72)",
-    color: "white",
+    background: "#f3f5f7",
+    color: "#6b7280",
     fontWeight: 900,
-    fontSize: 14,
+    fontSize: 13,
+    borderRadius: 14,
+    padding: "12px 14px",
     cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    boxShadow: "0 4px 10px rgba(0,0,0,0.18)",
   },
   selectBox: {
     width: "100%",
