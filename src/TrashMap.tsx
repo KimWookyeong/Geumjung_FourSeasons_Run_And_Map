@@ -290,6 +290,7 @@ export default function TrashMap() {
   const [activeTab, setActiveTab] = useState("map");
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [message, setMessage] = useState("");
+  const [editingReportId, setEditingReportId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     category: "cup",
@@ -379,6 +380,7 @@ export default function TrashMap() {
   }, [reports]);
 
   const resetForm = () => {
+    setEditingReportId(null);
     setFormData({
       category: "cup",
       area: AREAS[0],
@@ -393,6 +395,24 @@ export default function TrashMap() {
     setFormData((prev) => ({ ...prev, image: "" }));
     if (fileInputRef.current) fileInputRef.current.value = "";
     setMessage("사진이 삭제되었습니다.");
+  };
+
+  const handleStartEdit = (report: any) => {
+    const isOwner = !!user && report.uid === user.uid;
+    if (!isAdmin && !isOwner) {
+      setMessage("수정 권한이 없습니다.");
+      return;
+    }
+
+    setEditingReportId(report.id);
+    setFormData({
+      category: report.category || "cup",
+      area: report.area || AREAS[0],
+      description: report.description || "",
+      image: report.image || "",
+      location: report.location || null,
+    });
+    setShowAddSheet(true);
   };
 
   const handleJoin = (e: any) => {
@@ -424,6 +444,7 @@ export default function TrashMap() {
     setAdminCode("");
     setSavedAdminCode("");
     setShowAddSheet(false);
+    resetForm();
     try {
       await signOut(auth);
     } catch (error) {
@@ -489,14 +510,46 @@ export default function TrashMap() {
       return;
     }
 
-    const reportData = {
-      uid: user.uid,
-      userName: nickname,
+    const payload = {
       category: formData.category,
       area: formData.area,
       description: formData.description.trim() || "내용 없음",
       image: formData.image || "",
       location: formData.location,
+    };
+
+    if (editingReportId) {
+      const target = reports.find((r) => r.id === editingReportId);
+      if (!target) {
+        setMessage("수정할 기록을 찾을 수 없습니다.");
+        return;
+      }
+
+      const isOwner = !!user && target.uid === user.uid;
+      if (!isAdmin && !isOwner) {
+        setMessage("수정 권한이 없습니다.");
+        return;
+      }
+
+      try {
+        await update(ref(db, `reports/${editingReportId}`), {
+          ...payload,
+          updatedAtMs: Date.now(),
+        });
+        resetForm();
+        setShowAddSheet(false);
+        setMessage("수정이 완료되었습니다.");
+      } catch (error) {
+        console.error(error);
+        setMessage("수정에 실패했습니다.");
+      }
+      return;
+    }
+
+    const reportData = {
+      uid: user.uid,
+      userName: nickname,
+      ...payload,
       status: "pending",
       createdAtMs: Date.now(),
     };
@@ -656,7 +709,7 @@ export default function TrashMap() {
                     icon={makeMarkerIcon(report.category)}
                   >
                     <Popup>
-                      <div style={{ minWidth: 160 }}>
+                      <div style={{ minWidth: 170 }}>
                         <div>
                           <strong>
                             {getCategory(report.category).icon} {getCategory(report.category).label}
@@ -673,7 +726,13 @@ export default function TrashMap() {
               </MapContainer>
             </div>
 
-            <button style={styles.recordFab} onClick={() => setShowAddSheet(true)}>
+            <button
+              style={styles.recordFab}
+              onClick={() => {
+                resetForm();
+                setShowAddSheet(true);
+              }}
+            >
               기록하기 +
             </button>
           </div>
@@ -691,6 +750,7 @@ export default function TrashMap() {
                 const isOwner = !!user && report.uid === user.uid;
 
                 const canDelete = isAdmin || isOwner;
+                const canEdit = isAdmin || isOwner;
                 const canToggle =
                   isAdmin ||
                   report.status === "pending" ||
@@ -727,10 +787,21 @@ export default function TrashMap() {
 
                     <div style={styles.feedFooter}>
                       <div style={styles.feedUser}>👤 {report.userName}</div>
-                      {canDelete ? (
-                        <button onClick={() => handleDelete(report.id)} style={styles.deleteButton}>
-                          삭제
-                        </button>
+
+                      {canEdit || canDelete ? (
+                        <div style={styles.feedActions}>
+                          {canEdit ? (
+                            <button onClick={() => handleStartEdit(report)} style={styles.editButton}>
+                              수정
+                            </button>
+                          ) : null}
+
+                          {canDelete ? (
+                            <button onClick={() => handleDelete(report.id)} style={styles.deleteButton}>
+                              삭제
+                            </button>
+                          ) : null}
+                        </div>
                       ) : (
                         <div style={{ color: "#ccd4dd", fontSize: 11, fontWeight: 800 }}>읽기 전용</div>
                       )}
@@ -806,7 +877,7 @@ export default function TrashMap() {
         <div style={styles.sheetBackdrop}>
           <div style={styles.addSheet}>
             <div style={styles.sheetHeader}>
-              <div style={styles.sheetTitle}>NEW RECORD</div>
+              <div style={styles.sheetTitle}>{editingReportId ? "RECORD EDIT" : "NEW RECORD"}</div>
               <button
                 onClick={() => {
                   resetForm();
@@ -921,7 +992,7 @@ export default function TrashMap() {
               }}
               disabled={!user}
             >
-              {user ? "지도에 업로드" : "로그인 연결 중..."}
+              {user ? (editingReportId ? "수정 내용 저장" : "지도에 업로드") : "로그인 연결 중..."}
             </button>
           </div>
         </div>
@@ -1287,6 +1358,19 @@ const styles: any = {
     color: "#9aa3af",
     fontWeight: 800,
     fontSize: 12,
+  },
+  feedActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+  },
+  editButton: {
+    border: "none",
+    background: "transparent",
+    color: "#4aa97f",
+    fontWeight: 900,
+    fontSize: 13,
+    cursor: "pointer",
   },
   deleteButton: {
     border: "none",
