@@ -5,7 +5,7 @@ import L from "leaflet";
 import { onAuthStateChanged, signInAnonymously, signOut } from "firebase/auth";
 import { auth, db } from "./firebase";
 import { onValue, push, ref, remove, update } from "firebase/database";
-import fourSeasonsLogo from "./assets/four-seasons-logo.png";
+import logo from "./assets/logo.png";
 
 const BG = "#edf8f1";
 const GREEN = "#19c37d";
@@ -328,9 +328,7 @@ export default function TrashMap() {
     return () => clearTimeout(timer);
   }, [message]);
 
-  const isAdmin =
-    nickname.trim().toLowerCase() === ADMIN_NAME &&
-    savedAdminCode === ADMIN_CODE;
+  const isAdmin = nickname.trim().toLowerCase() === ADMIN_NAME && savedAdminCode === ADMIN_CODE;
 
   const stats = useMemo(() => {
     const solved = reports.filter((r) => r.status === "solved").length;
@@ -606,15 +604,14 @@ export default function TrashMap() {
     return (
       <div style={styles.joinScreen}>
         <style>{globalCss}</style>
+
         <div style={styles.joinWrap}>
           <div style={styles.brandHero}>
-            <div style={styles.brandLogoImageWrap}>
-              <img src={fourSeasonsLogo} alt="Four Seasons Logo" style={styles.brandLogoImage} />
-            </div>
+            <img src={logo} alt="Four Seasons Logo" style={styles.logo} />
 
-            <div style={styles.brandTextWrap}>
-              <div style={styles.joinTitle}>FOUR SEASONS</div>
-              <div style={styles.joinEyebrowPlain}>Run & Map Project 🍀</div>
+            <div style={styles.brandText}>
+              <div style={styles.title}>FOUR SEASONS</div>
+              <div style={styles.subtitle}>Run & Map Project 🍀</div>
             </div>
           </div>
 
@@ -727,8 +724,7 @@ export default function TrashMap() {
                 const statusButtonStyle =
                   report.status === "solved" ? styles.statusSolved : styles.statusPending;
 
-                const statusLabel =
-                  report.status === "solved" ? "해결됨 ✓" : "진행중";
+                const statusLabel = report.status === "solved" ? "해결됨 ✓" : "진행중";
 
                 return (
                   <div key={report.id} style={styles.feedCard}>
@@ -983,12 +979,10 @@ const globalCss = `
   button, input, textarea, select { font: inherit; }
   .leaflet-container { width: 100%; height: 100%; }
 
-  @keyframes cloverFloat {
-    0% { transform: translateY(0px) rotate(0deg) scale(1); }
-    25% { transform: translateY(-4px) rotate(-2deg) scale(1.03); }
-    50% { transform: translateY(0px) rotate(0deg) scale(1); }
-    75% { transform: translateY(-3px) rotate(2deg) scale(1.02); }
-    100% { transform: translateY(0px) rotate(0deg) scale(1); }
+  @keyframes float {
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(-6px); }
+    100% { transform: translateY(0px); }
   }
 
   @keyframes heroFadeUp {
@@ -1025,50 +1019,36 @@ const styles: any = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: 18,
-    flexWrap: "wrap",
-    marginBottom: 8,
+    gap: 16,
+    marginBottom: 12,
+    flexWrap: "nowrap",
   },
-  brandLogoImageWrap: {
-    width: 110,
-    height: 110,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
+  logo: {
+    width: 80,
+    height: 80,
+    objectFit: "contain",
+    animation: "float 3s ease-in-out infinite",
+    filter: "drop-shadow(0 10px 18px rgba(0,0,0,0.10))",
     flexShrink: 0,
   },
-  brandLogoImage: {
-    width: "100%",
-    height: "100%",
-    objectFit: "contain",
-    animation: "cloverFloat 2.8s ease-in-out infinite",
-    filter: "drop-shadow(0 10px 18px rgba(0,0,0,0.10))",
-  },
-  brandTextWrap: {
+  brandText: {
     display: "flex",
     flexDirection: "column",
     alignItems: "flex-start",
     justifyContent: "center",
   },
-  joinTitle: {
-    fontSize: 36,
+  title: {
+    fontSize: 34,
     fontWeight: 900,
     color: NAVY,
-    letterSpacing: "-0.05em",
-    marginTop: 0,
-    lineHeight: 0.95,
-    textAlign: "left",
+    letterSpacing: "-0.04em",
+    lineHeight: 1,
   },
-  joinEyebrowPlain: {
-    marginTop: 10,
+  subtitle: {
+    marginTop: 8,
     fontSize: 15,
     fontWeight: 800,
     color: "#1fb874",
-    letterSpacing: "-0.02em",
-    lineHeight: 1.2,
-    textAlign: "center",
-    alignSelf: "center",
-    marginLeft: "-6px",
   },
   joinCaption: {
     marginTop: 20,
