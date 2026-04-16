@@ -386,11 +386,9 @@ export default function TrashMap() {
   const [editingReportId, setEditingReportId] = useState<string | null>(null);
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [miniMapTarget, setMiniMapTarget] = useState<{ lat: number; lng: number } | null>(null);
-  const [showUploadChooser, setShowUploadChooser] = useState(false);
 
   const watchIdRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
   const [formData, setFormData] = useState({
     category: "cup",
@@ -514,7 +512,6 @@ export default function TrashMap() {
   const resetForm = () => {
     setEditingReportId(null);
     setMiniMapTarget(null);
-    setShowUploadChooser(false);
     setFormData({
       category: "cup",
       area: AREAS[0],
@@ -523,13 +520,11 @@ export default function TrashMap() {
       location: null,
     });
     if (fileInputRef.current) fileInputRef.current.value = "";
-    if (cameraInputRef.current) cameraInputRef.current.value = "";
   };
 
   const removeSelectedImage = () => {
     setFormData((prev) => ({ ...prev, image: "" }));
     if (fileInputRef.current) fileInputRef.current.value = "";
-    if (cameraInputRef.current) cameraInputRef.current.value = "";
     setMessage("사진이 삭제되었습니다.");
   };
 
@@ -621,35 +616,19 @@ export default function TrashMap() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.type.startsWith("video/")) {
-      setMessage("현재 버전에서는 동영상 저장을 지원하지 않습니다. 사진만 업로드해 주세요.");
-      return;
-    }
-
     if (!file.type.startsWith("image/")) {
-      setMessage("이미지 파일만 올릴 수 있습니다.");
+      setMessage("사진 파일만 업로드할 수 있습니다.");
       return;
     }
 
     try {
       const compressed = await compressImage(file);
       setFormData((prev) => ({ ...prev, image: compressed }));
-      setShowUploadChooser(false);
       setMessage("사진이 첨부되었습니다.");
     } catch (error) {
       console.error(error);
       setMessage("사진 처리에 실패했습니다.");
     }
-  };
-
-  const openCameraUpload = () => {
-    setShowUploadChooser(false);
-    cameraInputRef.current?.click();
-  };
-
-  const openFileUpload = () => {
-    setShowUploadChooser(false);
-    fileInputRef.current?.click();
   };
 
   const handleSave = async () => {
@@ -1053,26 +1032,17 @@ export default function TrashMap() {
 
               <button
                 type="button"
-                onClick={() => setShowUploadChooser(true)}
+                onClick={() => fileInputRef.current?.click()}
                 style={styles.actionCardLightButton}
               >
                 <div style={{ fontSize: 20, color: GREEN }}>📷</div>
-                <div style={styles.actionCardLabelGreen}>사진업로드</div>
+                <div style={styles.actionCardLabelGreen}>사진 업로드</div>
               </button>
-
-              <input
-                ref={cameraInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={handleImageChange}
-                style={{ display: "none" }}
-              />
 
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".jpg,.jpeg,.png,.webp,.gif,.bmp,.mp4,.mov,.avi,.m4v,.webm"
+                accept="image/*"
                 onChange={handleImageChange}
                 style={{ display: "none" }}
               />
@@ -1139,30 +1109,6 @@ export default function TrashMap() {
               {user ? (editingReportId ? "수정 내용 저장" : "지도에 업로드") : "로그인 연결 중..."}
             </button>
           </div>
-
-          {showUploadChooser && (
-            <div style={styles.uploadChooserBackdrop} onClick={() => setShowUploadChooser(false)}>
-              <div style={styles.uploadChooserCard} onClick={(e) => e.stopPropagation()}>
-                <div style={styles.uploadChooserTitle}>사진업로드</div>
-
-                <button type="button" onClick={openCameraUpload} style={styles.uploadChooserButton}>
-                  카메라 촬영
-                </button>
-
-                <button type="button" onClick={openFileUpload} style={styles.uploadChooserButton}>
-                  사진·동영상 선택
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowUploadChooser(false)}
-                  style={styles.uploadChooserCancel}
-                >
-                  취소
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       )}
     </div>
@@ -1237,7 +1183,7 @@ const styles: any = {
     gap: 2,
     marginBottom: 12,
     flexWrap: "nowrap",
-    transform: "translateX(-12px)",
+    transform: "translateX(-18px)",
   },
   logo: {
     width: 96,
@@ -1330,614 +1276,4 @@ const styles: any = {
     background: "linear-gradient(135deg, #19c37d 0%, #2dd4a3 100%)",
     color: "white",
     fontWeight: 900,
-    fontSize: 22,
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 10,
-    boxShadow: "0 12px 24px rgba(25,195,125,0.22)",
-    cursor: "pointer",
-  },
-  headerBar: {
-    height: 72,
-    background: "white",
-    borderBottom: `1px solid ${BORDER}`,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: "0 14px",
-    flexShrink: 0,
-  },
-  adminPill: {
-    minWidth: 80,
-    height: 38,
-    borderRadius: 999,
-    border: `1px solid ${BORDER}`,
-    color: "#1d8f63",
-    fontWeight: 800,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    background: "#f4fbf7",
-    fontSize: 14,
-  },
-  userPill: {
-    minWidth: 80,
-    height: 38,
-    borderRadius: 999,
-    border: `1px solid ${BORDER}`,
-    color: "#1d8f63",
-    fontWeight: 800,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    background: "#f4fbf7",
-    padding: "0 12px",
-    fontSize: 13,
-  },
-  logoutButton: {
-    width: 30,
-    height: 30,
-    border: "none",
-    background: "transparent",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    cursor: "pointer",
-  },
-  mainArea: {
-    flex: 1,
-    minHeight: 0,
-    overflow: "hidden",
-    position: "relative",
-  },
-  mapPage: {
-    width: "100%",
-    height: "100%",
-    position: "relative",
-  },
-  fullMapWrap: {
-    position: "absolute",
-    inset: 0,
-  },
-  recordFab: {
-    position: "absolute",
-    left: "50%",
-    bottom: 86,
-    transform: "translateX(-50%)",
-    border: "none",
-    background: NAVY,
-    color: "white",
-    fontSize: 17,
-    fontWeight: 900,
-    padding: "18px 32px",
-    borderRadius: 999,
-    boxShadow: "0 14px 28px rgba(22,37,68,0.22)",
-    cursor: "pointer",
-    zIndex: 500,
-  },
-  pageWrap: {
-    width: "100%",
-    height: "100%",
-    overflowY: "auto",
-    padding: "20px 16px 108px",
-    background: BG,
-  },
-  pageHeading: {
-    color: NAVY,
-    fontWeight: 900,
-    fontSize: 28,
-    letterSpacing: "-0.03em",
-    marginBottom: 20,
-  },
-  emptyFeed: {
-    color: "#c8d0db",
-    textAlign: "center",
-    marginTop: 150,
-    fontWeight: 900,
-    fontSize: 22,
-  },
-  feedCard: {
-    background: "white",
-    borderRadius: 28,
-    padding: 18,
-    marginBottom: 14,
-    border: `1px solid ${BORDER}`,
-    boxShadow: "0 8px 18px rgba(0,0,0,0.05)",
-  },
-  feedCardTop: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: 12,
-  },
-  areaBadge: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 8,
-    fontSize: 11,
-    fontWeight: 900,
-    color: GREEN,
-    padding: "7px 10px",
-    background: "#f4fbf7",
-    borderRadius: 999,
-    border: `1px solid ${BORDER}`,
-  },
-  statusSolved: {
-    border: "none",
-    background: GREEN,
-    color: "white",
-    fontWeight: 900,
-    fontSize: 10,
-    padding: "7px 10px",
-    borderRadius: 999,
-    cursor: "pointer",
-  },
-  statusPending: {
-    border: "none",
-    background: "#eef2f7",
-    color: "#9ea7b4",
-    fontWeight: 900,
-    fontSize: 10,
-    padding: "7px 10px",
-    borderRadius: 999,
-    cursor: "pointer",
-  },
-  feedImage: {
-    width: "100%",
-    height: 170,
-    objectFit: "cover",
-    borderRadius: 20,
-    marginBottom: 12,
-    border: "1px solid #edf2f5",
-  },
-  feedText: {
-    color: "#5c6674",
-    fontSize: 15,
-    lineHeight: 1.55,
-    fontWeight: 700,
-    marginBottom: 14,
-    padding: "0 2px",
-  },
-  feedFooter: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderTop: "1px solid #eff3f7",
-    paddingTop: 12,
-  },
-  feedUser: {
-    color: "#9aa3af",
-    fontWeight: 800,
-    fontSize: 12,
-  },
-  feedActions: {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-  },
-  editButton: {
-    border: "none",
-    background: "transparent",
-    color: "#4aa97f",
-    fontWeight: 900,
-    fontSize: 13,
-    cursor: "pointer",
-  },
-  deleteButton: {
-    border: "none",
-    background: "transparent",
-    color: "#ef9a9a",
-    fontWeight: 900,
-    fontSize: 13,
-    cursor: "pointer",
-  },
-  totalBox: {
-    background: NAVY,
-    borderRadius: 40,
-    padding: "34px 16px 24px",
-    textAlign: "center",
-    boxShadow: "0 14px 28px rgba(22,37,68,0.18)",
-    marginBottom: 18,
-  },
-  totalNumber: {
-    color: "white",
-    fontWeight: 900,
-    fontSize: 72,
-    lineHeight: 1,
-    marginBottom: 8,
-  },
-  totalLabel: {
-    color: GREEN,
-    fontWeight: 900,
-    letterSpacing: "0.12em",
-    fontSize: 13,
-  },
-  statRow: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: 14,
-    marginBottom: 20,
-  },
-  smallStatBox: {
-    background: "white",
-    borderRadius: 26,
-    padding: "24px 14px",
-    textAlign: "center",
-    boxShadow: "0 8px 18px rgba(0,0,0,0.05)",
-  },
-  smallStatTitle: {
-    color: "#9ca6b5",
-    fontSize: 12,
-    fontWeight: 900,
-    marginBottom: 14,
-  },
-  smallStatNumber: {
-    fontSize: 42,
-    fontWeight: 900,
-    lineHeight: 1,
-  },
-  categoryStatsWrap: {
-    background: "white",
-    borderRadius: 28,
-    padding: "20px 16px",
-    boxShadow: "0 8px 18px rgba(0,0,0,0.05)",
-    marginBottom: 20,
-  },
-  categoryStatsTitle: {
-    color: NAVY,
-    fontWeight: 900,
-    fontSize: 18,
-    marginBottom: 14,
-  },
-  categoryStatsGrid: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: 12,
-  },
-  categoryStatCard: {
-    background: "#f8fbf9",
-    border: `1px solid ${BORDER}`,
-    borderRadius: 20,
-    padding: "14px 12px",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    textAlign: "center",
-    minHeight: 116,
-    justifyContent: "center",
-  },
-  categoryStatIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    color: "white",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: 20,
-    marginBottom: 10,
-    boxShadow: "0 8px 16px rgba(0,0,0,0.10)",
-  },
-  categoryStatLabel: {
-    color: NAVY,
-    fontSize: 12,
-    fontWeight: 800,
-    marginBottom: 6,
-    lineHeight: 1.35,
-  },
-  categoryStatCount: {
-    color: GREEN,
-    fontSize: 24,
-    fontWeight: 900,
-    lineHeight: 1,
-  },
-  adminCard: {
-    background: "#f9fcfa",
-    borderRadius: 32,
-    border: "2px dashed #f3dddd",
-    padding: "30px 18px 22px",
-    textAlign: "center",
-    boxShadow: "0 8px 18px rgba(0,0,0,0.03)",
-  },
-  adminTitle: {
-    color: "#f08a8a",
-    fontWeight: 900,
-    fontSize: 24,
-    marginBottom: 12,
-  },
-  adminDesc: {
-    color: "#bac2cb",
-    fontWeight: 800,
-    lineHeight: 1.45,
-    fontSize: 13,
-    marginBottom: 18,
-  },
-  adminButton: {
-    width: "100%",
-    border: "none",
-    background: "#ea8f8f",
-    color: "white",
-    fontWeight: 900,
-    fontSize: 18,
-    borderRadius: 22,
-    padding: "18px 16px",
-    cursor: "pointer",
-  },
-  bottomNav: {
-    height: 82,
-    background: "white",
-    borderTop: `1px solid ${BORDER}`,
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr 1fr",
-    alignItems: "center",
-    flexShrink: 0,
-    paddingBottom: 4,
-  },
-  navItemButton: {
-    border: "none",
-    background: "transparent",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 3,
-    cursor: "pointer",
-  },
-  navLabel: {
-    fontSize: 12,
-    fontWeight: 900,
-  },
-  sheetBackdrop: {
-    position: "fixed",
-    inset: 0,
-    background: "rgba(10,18,32,0.18)",
-    display: "flex",
-    alignItems: "flex-end",
-    justifyContent: "center",
-    zIndex: 2000,
-  },
-  addSheet: {
-    width: "100%",
-    maxWidth: 800,
-    maxHeight: "88vh",
-    overflowY: "auto",
-    background: BG,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    padding: "18px 14px 22px",
-    boxShadow: "0 -14px 36px rgba(0,0,0,0.16)",
-    position: "relative",
-  },
-  sheetHeader: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 14,
-  },
-  sheetTitle: {
-    color: NAVY,
-    fontWeight: 900,
-    fontSize: 20,
-    letterSpacing: "-0.03em",
-  },
-  closeButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    border: "1px solid #eef3f0",
-    background: "white",
-    fontSize: 18,
-    cursor: "pointer",
-  },
-  miniMapWrap: {
-    height: 190,
-    overflow: "hidden",
-    borderRadius: 20,
-    marginBottom: 8,
-    boxShadow: "0 8px 18px rgba(0,0,0,0.06)",
-  },
-  helpCopy: {
-    color: "#8f9caa",
-    fontSize: 12,
-    fontWeight: 700,
-    marginBottom: 12,
-    textAlign: "center",
-  },
-  topActionGrid: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: 12,
-    marginBottom: 12,
-  },
-  actionCardDark: {
-    height: 84,
-    border: "none",
-    borderRadius: 22,
-    background: NAVY,
-    color: "white",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 5,
-    boxShadow: "0 8px 18px rgba(22,37,68,0.18)",
-    cursor: "pointer",
-  },
-  actionCardLightButton: {
-    height: 84,
-    borderRadius: 22,
-    background: "white",
-    border: `2px dashed ${BORDER}`,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 5,
-    boxShadow: "0 8px 16px rgba(0,0,0,0.04)",
-    cursor: "pointer",
-  },
-  actionCardLabelWhite: {
-    fontSize: 11,
-    fontWeight: 900,
-    color: "white",
-    textAlign: "center",
-  },
-  actionCardLabelGreen: {
-    fontSize: 11,
-    fontWeight: 900,
-    color: GREEN,
-    textAlign: "center",
-  },
-  previewPanel: {
-    background: "white",
-    borderRadius: 20,
-    padding: 10,
-    marginBottom: 12,
-    boxShadow: "0 8px 16px rgba(0,0,0,0.04)",
-  },
-  previewPanelImage: {
-    width: "100%",
-    height: 180,
-    objectFit: "cover",
-    borderRadius: 16,
-    marginBottom: 10,
-  },
-  previewRemoveButton: {
-    width: "100%",
-    border: "none",
-    background: "#f3f5f7",
-    color: "#6b7280",
-    fontWeight: 900,
-    fontSize: 13,
-    borderRadius: 14,
-    padding: "12px 14px",
-    cursor: "pointer",
-  },
-  selectBox: {
-    width: "100%",
-    border: "2px solid #edf2f0",
-    background: "white",
-    borderRadius: 18,
-    padding: "14px 14px",
-    fontSize: 15,
-    fontWeight: 800,
-    color: NAVY,
-    marginBottom: 12,
-    outline: "none",
-  },
-  categoryGrid: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: 10,
-    marginBottom: 12,
-  },
-  categoryCard: {
-    border: "2px solid transparent",
-    background: "white",
-    borderRadius: 20,
-    minHeight: 68,
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    padding: "0 14px",
-    cursor: "pointer",
-  },
-  categoryCardText: {
-    color: NAVY,
-    fontSize: 12,
-    fontWeight: 900,
-  },
-  textAreaBox: {
-    width: "100%",
-    minHeight: 120,
-    borderRadius: 24,
-    border: "2px solid #eef2f0",
-    background: "white",
-    padding: "16px 14px",
-    fontSize: 15,
-    color: NAVY,
-    resize: "none",
-    outline: "none",
-    marginBottom: 14,
-  },
-  uploadButton: {
-    width: "100%",
-    border: "none",
-    background: GREEN,
-    color: "white",
-    fontWeight: 900,
-    fontSize: 18,
-    borderRadius: 24,
-    padding: "20px 16px",
-    cursor: "pointer",
-    boxShadow: "0 14px 24px rgba(25,195,125,0.20)",
-  },
-  uploadChooserBackdrop: {
-    position: "fixed",
-    inset: 0,
-    background: "rgba(0,0,0,0.18)",
-    display: "flex",
-    alignItems: "flex-end",
-    justifyContent: "center",
-    zIndex: 3000,
-  },
-  uploadChooserCard: {
-    width: "100%",
-    maxWidth: 520,
-    background: "white",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: "18px 16px 22px",
-    boxShadow: "0 -10px 30px rgba(0,0,0,0.16)",
-  },
-  uploadChooserTitle: {
-    textAlign: "center",
-    color: NAVY,
-    fontSize: 17,
-    fontWeight: 900,
-    marginBottom: 14,
-  },
-  uploadChooserButton: {
-    width: "100%",
-    border: "none",
-    background: "#f5faf7",
-    color: NAVY,
-    fontWeight: 800,
-    fontSize: 15,
-    borderRadius: 16,
-    padding: "16px 14px",
-    marginBottom: 10,
-    cursor: "pointer",
-  },
-  uploadChooserCancel: {
-    width: "100%",
-    border: "none",
-    background: "#eef2f7",
-    color: "#6b7280",
-    fontWeight: 800,
-    fontSize: 15,
-    borderRadius: 16,
-    padding: "16px 14px",
-    cursor: "pointer",
-  },
-  toast: {
-    position: "fixed",
-    top: 14,
-    left: "50%",
-    transform: "translateX(-50%)",
-    background: "#182742",
-    color: "white",
-    padding: "10px 18px",
-    borderRadius: 14,
-    zIndex: 4000,
-    boxShadow: "0 12px 24px rgba(0,0,0,0.18)",
-    fontWeight: 800,
-    fontSize: 14,
-    whiteSpace: "nowrap",
-    maxWidth: "90vw",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-  },
-};
+    fontSize
