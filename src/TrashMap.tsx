@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
+import { Circle, MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import { onAuthStateChanged, signInAnonymously, signOut } from "firebase/auth";
 import { auth, db } from "./firebase";
@@ -406,6 +406,88 @@ function buildRanking(reports: any[]) {
     });
 }
 
+
+function buildHeatmapData(reports: any[]) {
+  const grid = new Map<string, { lat: number; lng: number; count: number }>();
+  const precision = 0.0016;
+
+  reports.forEach((report) => {
+    if (!report.location) return;
+
+    const lat = report.location.lat;
+    const lng = report.location.lng;
+    const latKey = Math.round(lat / precision) * precision;
+    const lngKey = Math.round(lng / precision) * precision;
+    const key = `${latKey.toFixed(4)}_${lngKey.toFixed(4)}`;
+
+    if (!grid.has(key)) {
+      grid.set(key, { lat: latKey, lng: lngKey, count: 0 });
+    }
+
+    grid.get(key)!.count += 1;
+  });
+
+  return Array.from(grid.values());
+}
+
+function getHeatColor(count: number, maxCount: number) {
+  const ratio = maxCount <= 1 ? 0.35 : count / maxCount;
+  if (ratio >= 0.8) return "#dc2626";
+  if (ratio >= 0.55) return "#f97316";
+  if (ratio >= 0.3) return "#facc15";
+  return "#86efac";
+}
+
+function HeatmapLayer({ reports }: { reports: any[] }) {
+  const data = useMemo(() => buildHeatmapData(reports), [reports]);
+  const maxCount = useMemo(() => Math.max(...data.map((d) => d.count), 1), [data]);
+
+  return (
+    <>
+      {data.map((item, index) => {
+        const color = getHeatColor(item.count, maxCount);
+        const ratio = item.count / maxCount;
+        const outerRadius = 120 + ratio * 220;
+        const innerRadius = 48 + ratio * 90;
+
+        return (
+          <div key={`${item.lat}-${item.lng}-${index}`}>
+            <Circle
+              center={[item.lat, item.lng]}
+              radius={outerRadius}
+              pathOptions={{
+                color,
+                weight: 0,
+                fillColor: color,
+                fillOpacity: 0.12 + ratio * 0.16,
+                className: "heatmap-pulse-outer",
+              }}
+            />
+            <Circle
+              center={[item.lat, item.lng]}
+              radius={innerRadius}
+              pathOptions={{
+                color,
+                weight: 0,
+                fillColor: color,
+                fillOpacity: 0.22 + ratio * 0.22,
+                className: "heatmap-pulse-inner",
+              }}
+            >
+              <Popup>
+                <div style={{ minWidth: 140 }}>
+                  <strong>집중 구역</strong>
+                  <div style={{ marginTop: 6 }}>기록 수: {item.count}</div>
+                </div>
+              </Popup>
+            </Circle>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
 export default function TrashMap() {
   const [nickname, setNickname] = useState("");
   const [nicknameInput, setNicknameInput] = useState("");
@@ -415,6 +497,7 @@ export default function TrashMap() {
   const [reports, setReports] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("map");
   const [showAddSheet, setShowAddSheet] = useState(false);
+  const [heatmapOn, setHeatmapOn] = useState(false);
   const [message, setMessage] = useState("");
   const [editingReportId, setEditingReportId] = useState<string | null>(null);
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -886,6 +969,7 @@ export default function TrashMap() {
 
                 <CurrentLocationMarker currentLocation={currentLocation} />
                 <InitialMapFollow currentLocation={currentLocation} activeTab={activeTab} />
+                {heatmapOn ? <HeatmapLayer reports={reports} /> : null}
 
                 {reports.map((report) => (
                   <Marker
@@ -909,6 +993,16 @@ export default function TrashMap() {
                   </Marker>
                 ))}
               </MapContainer>
+
+              <button
+                style={{
+                  ...styles.heatmapToggle,
+                  ...(heatmapOn ? styles.heatmapToggleOn : styles.heatmapToggleOff),
+                }}
+                onClick={() => setHeatmapOn((prev) => !prev)}
+              >
+                {heatmapOn ? "🔴 히트맵 ON" : "🟡 히트맵 OFF"}
+              </button>
 
               <button
                 style={styles.recordFab}
@@ -1282,6 +1376,28 @@ const globalCss = `
     }
   }
 
+  .heatmap-pulse-outer {
+    animation: heatOuterPulse 2.8s ease-in-out infinite;
+    transform-origin: center;
+  }
+
+  .heatmap-pulse-inner {
+    animation: heatInnerPulse 2s ease-in-out infinite;
+    transform-origin: center;
+  }
+
+  @keyframes heatOuterPulse {
+    0% { opacity: 0.72; }
+    50% { opacity: 1; }
+    100% { opacity: 0.72; }
+  }
+
+  @keyframes heatInnerPulse {
+    0% { opacity: 0.78; }
+    50% { opacity: 1; }
+    100% { opacity: 0.78; }
+  }
+
   @keyframes heroFadeUp {
     0% { opacity: 0; transform: translateY(10px); }
     100% { opacity: 1; transform: translateY(0); }
@@ -1499,10 +1615,30 @@ const styles: any = {
     height: "100%",
     position: "relative",
   },
+  heatmapToggle: {
+    position: "absolute",
+    left: 16,
+    bottom: 28,
+    border: "none",
+    borderRadius: 999,
+    padding: "10px 16px",
+    fontWeight: 900,
+    fontSize: 13,
+    boxShadow: "0 10px 22px rgba(0,0,0,0.10)",
+    cursor: "pointer",
+    zIndex: 2600,
+  },
+  heatmapToggleOff: {
+    background: "#ecfccb",
+    color: NAVY,
+  },
+  heatmapToggleOn: {
+    background: "#f97316",
+    color: "white",
+  },
   recordFab: {
     position: "absolute",
-    left: "50%",
-    transform: "translateX(-50%)",
+    right: 16,
     bottom: 28,
     border: "none",
     borderRadius: 999,
@@ -1728,24 +1864,16 @@ const styles: any = {
   },
   categoryStatsGrid: {
     display: "grid",
-    gridTemplateColumns: "1fr 1fr 1fr",
+    gridTemplateColumns: "1fr 1fr",
     gap: 10,
   },
-  
   categoryStatCard: {
-    borderRadius: 18,
+    borderRadius: 20,
     background: "#f9fcfa",
-    border: "2px solid #edf2ee",
-    padding: "14px 10px",
+    border: "1px solid #edf2ee",
+    padding: "14px 12px",
     textAlign: "center",
-    minHeight: 118,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
   },
-  
   categoryStatIcon: {
     width: 42,
     height: 42,
@@ -1755,25 +1883,18 @@ const styles: any = {
     alignItems: "center",
     justifyContent: "center",
     fontSize: 20,
-    margin: "0 auto 2px",
+    margin: "0 auto 10px",
   },
-  
   categoryStatLabel: {
     color: NAVY,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: 800,
-    textAlign: "center",
-    lineHeight: 1.35,
-    minHeight: 32,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
+    minHeight: 34,
   },
-  
   categoryStatCount: {
-    marginTop: 2,
+    marginTop: 8,
     color: GREEN,
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: 900,
     lineHeight: 1,
   },
