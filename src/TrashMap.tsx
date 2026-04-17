@@ -994,25 +994,27 @@ export default function TrashMap() {
                 ))}
               </MapContainer>
 
-              <button
-                style={{
-                  ...styles.heatmapToggle,
-                  ...(heatmapOn ? styles.heatmapToggleOn : styles.heatmapToggleOff),
-                }}
-                onClick={() => setHeatmapOn((prev) => !prev)}
-              >
-                {heatmapOn ? "🔴 히트맵 ON" : "🟡 히트맵 OFF"}
-              </button>
+              <div style={styles.mapActionRow}>
+                <button
+                  style={{
+                    ...styles.heatmapToggle,
+                    ...(heatmapOn ? styles.heatmapToggleOn : styles.heatmapToggleOff),
+                  }}
+                  onClick={() => setHeatmapOn((prev) => !prev)}
+                >
+                  {heatmapOn ? "히트맵 ON" : "히트맵 OFF"}
+                </button>
 
-              <button
-                style={styles.recordFab}
-                onClick={() => {
-                  resetForm();
-                  setShowAddSheet(true);
-                }}
-              >
-                기록하기 +
-              </button>
+                <button
+                  style={styles.recordFab}
+                  onClick={() => {
+                    resetForm();
+                    setShowAddSheet(true);
+                  }}
+                >
+                  기록하기 +
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -1615,31 +1617,36 @@ const styles: any = {
     height: "100%",
     position: "relative",
   },
-  heatmapToggle: {
+  mapActionRow: {
     position: "absolute",
     left: 16,
-    bottom: 28,
-    border: "none",
-    borderRadius: 999,
-    padding: "10px 16px",
-    fontWeight: 900,
-    fontSize: 13,
-    boxShadow: "0 10px 22px rgba(0,0,0,0.10)",
-    cursor: "pointer",
-    zIndex: 2600,
-  },
-  heatmapToggleOff: {
-    background: "#ecfccb",
-    color: NAVY,
-  },
-  heatmapToggleOn: {
-    background: "#f97316",
-    color: "white",
-  },
-  recordFab: {
-    position: "absolute",
     right: 16,
     bottom: 28,
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 12,
+    zIndex: 2600,
+  },
+  heatmapToggle: {
+    border: "none",
+    borderRadius: 999,
+    color: "white",
+    fontSize: 16,
+    fontWeight: 900,
+    padding: "16px 24px",
+    minWidth: 168,
+    boxShadow: "0 14px 28px rgba(52,211,153,0.28)",
+    cursor: "pointer",
+    flex: "0 0 auto",
+  },
+  heatmapToggleOff: {
+    background: "linear-gradient(135deg, #86efac 0%, #34d399 100%)",
+  },
+  heatmapToggleOn: {
+    background: "linear-gradient(135deg, #f97316 0%, #ef4444 100%)",
+  },
+  recordFab: {
     border: "none",
     borderRadius: 999,
     background: "linear-gradient(135deg, #86efac 0%, #34d399 100%)",
@@ -1650,7 +1657,7 @@ const styles: any = {
     minWidth: 168,
     boxShadow: "0 14px 28px rgba(52,211,153,0.28)",
     cursor: "pointer",
-    zIndex: 2500,
+    flex: "0 0 auto",
   },
   pageWrap: {
     height: "100%",
