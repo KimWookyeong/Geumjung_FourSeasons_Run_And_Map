@@ -30,9 +30,12 @@ const AREAS = [
 const CATEGORIES = [
   { id: "cup", label: "일회용 컵", icon: "🥤", color: "#19c37d" },
   { id: "smoke", label: "담배꽁초", icon: "🚬", color: "#f59e0b" },
-  { id: "plastic", label: "플라스틱", icon: "🧴", color: "#3b82f6" },
   { id: "vinyl", label: "비닐", icon: "🛍️", color: "#06b6d4" },
-  { id: "bulky", label: "대형 폐기물", icon: "📦", color: "#8b5cf6" },
+  { id: "plastic", label: "플라스틱", icon: "🧴", color: "#3b82f6" },
+  { id: "can", label: "캔", icon: "🥫", color: "#ef4444" },
+  { id: "glass", label: "유리", icon: "🍾", color: "#8b5cf6" },
+  { id: "paper", label: "종이류", icon: "📄", color: "#f97316" },
+  { id: "bulky", label: "대형 폐기물", icon: "📦", color: "#0f766e" },
   { id: "etc", label: "기타 쓰레기", icon: "❓", color: "#64748b" },
 ];
 
@@ -1871,15 +1874,20 @@ const styles: any = {
   },
   categoryStatsGrid: {
     display: "grid",
-    gridTemplateColumns: "1fr 1fr",
+    gridTemplateColumns: "1fr 1fr 1fr",
     gap: 10,
   },
   categoryStatCard: {
     borderRadius: 20,
     background: "#f9fcfa",
     border: "1px solid #edf2ee",
-    padding: "14px 12px",
+    padding: "14px 10px",
     textAlign: "center",
+    minHeight: 118,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
   },
   categoryStatIcon: {
     width: 42,
@@ -1894,9 +1902,13 @@ const styles: any = {
   },
   categoryStatLabel: {
     color: NAVY,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: 800,
     minHeight: 34,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    lineHeight: 1.35,
   },
   categoryStatCount: {
     marginTop: 8,
